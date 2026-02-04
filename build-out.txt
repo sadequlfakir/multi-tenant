@@ -1,0 +1,10 @@
+
+> multi-tenant-website@0.1.0 build /mnt/store/Code/Warmups/multi-tenant
+> next build
+
+  ▲ Next.js 14.2.35
+
+   Creating an optimized production build ...
+
+> Build failed because of webpack errors
+ ELIFECYCLE  Command failed with exit code 1.
