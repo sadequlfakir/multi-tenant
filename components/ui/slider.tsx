@@ -48,7 +48,7 @@ export function Slider({ sliders, tenant, autoPlay = true, interval = 5000 }: Sl
 
   return (
     <div
-      className="relative w-full h-[500px] md:h-[600px] overflow-hidden"
+      className="relative w-full min-h-[420px] h-[55vh] md:min-h-[520px] md:h-[65vh] lg:h-[75vh] overflow-hidden"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >

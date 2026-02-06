@@ -39,7 +39,7 @@ export function HeroSection({ tenant }: HeroSectionProps) {
 
   if (loading) {
     return (
-      <section className="relative w-full h-[500px] md:h-[600px] overflow-hidden bg-muted">
+      <section className="relative w-full min-h-[420px] h-[55vh] md:min-h-[520px] md:h-[65vh] lg:h-[75vh] overflow-hidden bg-muted">
         <Skeleton className="absolute inset-0 w-full h-full rounded-none" />
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="text-center space-y-4 px-4 max-w-2xl">
@@ -65,8 +65,8 @@ export function HeroSection({ tenant }: HeroSectionProps) {
   }
 
   return (
-    <section className="bg-gradient-to-r from-primary to-secondary text-primary-foreground py-20">
-      <div className="container mx-auto px-4 text-center">
+    <section className="bg-gradient-to-r from-primary to-secondary text-primary-foreground min-h-[50vh] flex items-center py-24">
+      <div className="container mx-auto px-4 text-center w-full">
         <h2 className="text-5xl font-bold mb-4">Welcome to {tenant.config.siteName}</h2>
         <p className="text-xl mb-8">{tenant.config.siteDescription}</p>
         <Link href={getTenantLink(tenant, '/products')}>

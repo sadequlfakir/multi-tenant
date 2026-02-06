@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getTenantBySubdomain, updateTenantConfig } from '@/lib/tenant-store'
 import { getAuthenticatedUser } from '@/lib/auth'
 import { readUsers } from '@/lib/storage'
+import { getSupabase } from '@/lib/supabase'
 import { getTenantSubdomainFromRequest } from '@/lib/api-tenant'
 import { Category } from '@/lib/types'
 import { isCloudinaryUrl, deleteByUrl } from '@/lib/cloudinary'
@@ -205,16 +206,31 @@ export async function DELETE(
     }
 
     const categories = tenant.config.categories || []
-    
-    // Check if category has products
-    const products = tenant.config.products || []
-    const productsInCategory = products.filter(p => p.category === categories.find(c => c.id === id)?.name)
-    
-    if (productsInCategory.length > 0) {
-      return NextResponse.json(
-        { error: `Cannot delete category. ${productsInCategory.length} product(s) are using this category.` },
-        { status: 400 }
-      )
+    const category = categories.find(c => c.id === id)
+
+    // If Supabase products table is configured, enforce category usage check there
+    const supabase = getSupabase()
+    if (supabase && category) {
+      const { count, error: countError } = await supabase
+        .from('products')
+        .select('*', { count: 'exact', head: true })
+        .eq('tenant_id', tenant.id)
+        .eq('category', category.name)
+
+      if (countError) {
+        console.error('DELETE /api/categories/[id]: failed to count products for category', countError)
+        return NextResponse.json(
+          { error: 'Failed to check category usage' },
+          { status: 500 }
+        )
+      }
+
+      if ((count ?? 0) > 0) {
+        return NextResponse.json(
+          { error: `Cannot delete category. ${count} product(s) are using this category.` },
+          { status: 400 }
+        )
+      }
     }
 
     // Check if category has subcategories
@@ -226,6 +242,8 @@ export async function DELETE(
       )
     }
 
+    // At this point, either Supabase is not configured or there are no products using this category
+    // Re-find category in case of any changes
     const category = categories.find(c => c.id === id)
     if (!category) {
       return NextResponse.json(

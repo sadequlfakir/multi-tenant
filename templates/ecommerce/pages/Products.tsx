@@ -84,11 +84,21 @@ export default function EcommerceProducts({ tenant }: EcommerceProductsProps) {
   const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1)
   const limit = Math.max(1, parseInt(searchParams.get('limit') || String(DEFAULT_PAGE_SIZE), 10) || DEFAULT_PAGE_SIZE)
   const category = searchParams.get('category') || ''
+  const minPriceParam = searchParams.get('min_price') || ''
+  const maxPriceParam = searchParams.get('max_price') || ''
   const sort = searchParams.get('sort') || ''
   const q = searchParams.get('q') || searchParams.get('search') || ''
 
   const buildProductsUrl = useCallback(
-    (updates: { q?: string; category?: string; sort?: string; page?: number; limit?: number }) => {
+    (updates: {
+      q?: string
+      category?: string
+      min_price?: string
+      max_price?: string
+      sort?: string
+      page?: number
+      limit?: number
+    }) => {
       const params = new URLSearchParams(searchParams.toString())
       if (updates.q !== undefined) {
         if (updates.q) params.set('q', updates.q)
@@ -100,6 +110,14 @@ export default function EcommerceProducts({ tenant }: EcommerceProductsProps) {
       if (updates.category !== undefined) {
         if (updates.category) params.set('category', updates.category)
         else params.delete('category')
+      }
+      if (updates.min_price !== undefined) {
+        if (updates.min_price) params.set('min_price', updates.min_price)
+        else params.delete('min_price')
+      }
+      if (updates.max_price !== undefined) {
+        if (updates.max_price) params.set('max_price', updates.max_price)
+        else params.delete('max_price')
       }
       if (updates.sort !== undefined) {
         if (updates.sort) params.set('sort', updates.sort)
@@ -149,6 +167,8 @@ export default function EcommerceProducts({ tenant }: EcommerceProductsProps) {
         const params = new URLSearchParams()
         if (q) params.set('search', q)
         if (category) params.set('category', category)
+        if (minPriceParam) params.set('min_price', minPriceParam)
+        if (maxPriceParam) params.set('max_price', maxPriceParam)
         if (sort) params.set('sort', sort)
         params.set('page', String(page))
         params.set('limit', String(limit))
@@ -181,7 +201,7 @@ export default function EcommerceProducts({ tenant }: EcommerceProductsProps) {
     return () => {
       cancelled = true
     }
-  }, [tenant.subdomain, q, category, sort, page, limit])
+  }, [tenant.subdomain, q, category, minPriceParam, maxPriceParam, sort, page, limit])
 
   // Debounce search input -> URL (client-side navigation)
   useEffect(() => {
@@ -210,6 +230,21 @@ export default function EcommerceProducts({ tenant }: EcommerceProductsProps) {
     const value = parseInt(e.target.value, 10)
     router.push(buildProductsUrl({ limit: value, page: 1 }))
   }
+
+  const [priceMinInput, setPriceMinInput] = useState(minPriceParam)
+  const [priceMaxInput, setPriceMaxInput] = useState(maxPriceParam)
+  useEffect(() => {
+    setPriceMinInput(minPriceParam)
+    setPriceMaxInput(maxPriceParam)
+  }, [minPriceParam, maxPriceParam])
+
+  const handlePriceFilterApply = () => {
+    const min = priceMinInput.trim() ? priceMinInput.trim() : ''
+    const max = priceMaxInput.trim() ? priceMaxInput.trim() : ''
+    router.push(buildProductsUrl({ min_price: min, max_price: max, page: 1 }))
+  }
+
+  const hasPriceFilter = Boolean(minPriceParam || maxPriceParam)
 
   const showPagination = totalPages > 1
   const from = total === 0 ? 0 : (page - 1) * limit + 1
@@ -310,6 +345,58 @@ export default function EcommerceProducts({ tenant }: EcommerceProductsProps) {
                     )
                   })}
                 </ul>
+              </div>
+
+              <div className="rounded-lg border border-border bg-card p-4 mt-4">
+                <h2 className="font-semibold text-foreground mb-3">Price</h2>
+                <div className="space-y-2">
+                  <div className="flex gap-2 items-center">
+                    <span className="text-muted-foreground text-sm shrink-0">Min</span>
+                    <Input
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      placeholder="0"
+                      value={priceMinInput}
+                      onChange={(e) => setPriceMinInput(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handlePriceFilterApply()}
+                      className="h-9 text-sm"
+                      aria-label="Minimum price"
+                    />
+                  </div>
+                  <div className="flex gap-2 items-center">
+                    <span className="text-muted-foreground text-sm shrink-0">Max</span>
+                    <Input
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      placeholder="Any"
+                      value={priceMaxInput}
+                      onChange={(e) => setPriceMaxInput(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handlePriceFilterApply()}
+                      className="h-9 text-sm"
+                      aria-label="Maximum price"
+                    />
+                  </div>
+                  <div className="flex gap-2 pt-1">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      className="flex-1"
+                      onClick={handlePriceFilterApply}
+                    >
+                      Apply
+                    </Button>
+                    {hasPriceFilter && (
+                      <Link href={buildProductsUrl({ min_price: '', max_price: '', page: 1 })}>
+                        <Button type="button" variant="ghost" size="sm">
+                          Clear
+                        </Button>
+                      </Link>
+                    )}
+                  </div>
+                </div>
               </div>
             </aside>
           )}

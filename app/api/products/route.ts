@@ -4,9 +4,10 @@ import { getAuthenticatedUser } from '@/lib/auth'
 import { readUsers } from '@/lib/storage'
 import { getTenantSubdomainFromRequest } from '@/lib/api-tenant'
 import { Product } from '@/lib/types'
+import { getSupabase } from '@/lib/supabase'
 
 // GET - List products. Storefront (no auth) gets ONLY active. Dashboard (auth) gets all.
-// Query: featured, search (q), category (name or slug), sort (price_asc|price_desc|name_asc|name_desc|newest), page, limit.
+// Query: featured, search (q), category (name or slug), min_price, max_price, sort (price_asc|...), page, limit.
 // When page/limit provided, returns { products, total, page, limit, totalPages }. Otherwise returns array (backward compat).
 export async function GET(request: NextRequest) {
   try {
@@ -15,6 +16,10 @@ export async function GET(request: NextRequest) {
     const featured = searchParams.get('featured')
     const search = (searchParams.get('search') || searchParams.get('q') || '').trim().toLowerCase()
     const category = (searchParams.get('category') || '').trim()
+    const minPriceParam = searchParams.get('min_price')
+    const maxPriceParam = searchParams.get('max_price')
+    const minPrice = minPriceParam != null && minPriceParam !== '' ? parseFloat(minPriceParam) : null
+    const maxPrice = maxPriceParam != null && maxPriceParam !== '' ? parseFloat(maxPriceParam) : null
     const sort = searchParams.get('sort') || ''
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1)
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '12', 10) || 12))
@@ -36,49 +41,103 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    let list = tenant.config.products || []
-    if (!isDashboard) {
-      list = list.filter((p) => (p.status ?? 'active') === 'active')
-    }
-    if (featured === 'true') {
-      list = list.filter((p) => Boolean(p.featured))
-    }
-
-    if (search) {
-      list = list.filter(
-        (p) =>
-          (p.name || '').toLowerCase().includes(search) ||
-          (p.description || '').toLowerCase().includes(search) ||
-          (p.sku || '').toLowerCase().includes(search)
+    const supabase = getSupabase()
+    if (!supabase) {
+      console.error('GET /api/products: Supabase is not configured')
+      return NextResponse.json(
+        { error: 'Supabase is not configured on the server' },
+        { status: 500 }
       )
     }
 
-    if (category) {
-      const categories = tenant.config.categories || []
-      const categoryBySlug = categories.find((c) => (c.slug || '').toLowerCase() === category.toLowerCase())
-      const categoryName = categoryBySlug ? categoryBySlug.name : category
-      list = list.filter((p) => (p.category || '').toLowerCase() === categoryName.toLowerCase())
-    }
+    const usePagination = searchParams.has('page') || searchParams.has('limit')
 
-    const total = list.length
+    let query = supabase
+      .from('products')
+      .select('*', { count: 'exact' })
+      .eq('tenant_id', tenant.id)
+
+    if (!isDashboard) {
+      query = query.eq('status', 'active')
+    }
+    if (featured === 'true') {
+      query = query.eq('featured', true)
+    }
+    if (search) {
+      // Search in name, description, and sku (case-insensitive)
+      query = query.or(
+        [
+          `name.ilike.%${search}%`,
+          `description.ilike.%${search}%`,
+          `sku.ilike.%${search}%`,
+        ].join(',')
+      )
+    }
+    if (category) {
+      // Resolve category param (slug or name from URL) to canonical name; products are stored with category name.
+      const categories = tenant.config.categories || []
+      const categoryLower = category.toLowerCase().trim()
+      const resolved = categories.find(
+        (c) =>
+          (c.slug || '').toLowerCase().trim() === categoryLower ||
+          (c.name || '').toLowerCase().trim() === categoryLower
+      )
+      const filterValue = resolved ? resolved.name : category
+      query = query.ilike('category', filterValue)
+    }
+    if (minPrice != null && !Number.isNaN(minPrice) && minPrice >= 0) {
+      query = query.gte('price', minPrice)
+    }
+    if (maxPrice != null && !Number.isNaN(maxPrice) && maxPrice >= 0) {
+      query = query.lte('price', maxPrice)
+    }
 
     const sortKey = sort.toLowerCase()
-    if (sortKey === 'price_asc') list = list.slice().sort((a, b) => (a.price ?? 0) - (b.price ?? 0))
-    else if (sortKey === 'price_desc') list = list.slice().sort((a, b) => (b.price ?? 0) - (a.price ?? 0))
-    else if (sortKey === 'name_asc') list = list.slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''))
-    else if (sortKey === 'name_desc') list = list.slice().sort((a, b) => (b.name || '').localeCompare(a.name || ''))
-    else if (sortKey === 'newest') list = list.slice().sort((a, b) => (new Date(b.updatedAt || b.createdAt || 0).getTime() - new Date(a.updatedAt || a.createdAt || 0).getTime()))
-
-    const usePagination = searchParams.has('page') || searchParams.has('limit')
-    if (usePagination) {
-      const totalPages = Math.max(1, Math.ceil(total / limit))
-      const pageIndex = Math.min(page, totalPages)
-      const start = (pageIndex - 1) * limit
-      const products = list.slice(start, start + limit)
-      return NextResponse.json({ products, total, page: pageIndex, limit, totalPages })
+    if (sortKey === 'price_asc') query = query.order('price', { ascending: true })
+    else if (sortKey === 'price_desc') query = query.order('price', { ascending: false })
+    else if (sortKey === 'name_asc') query = query.order('name', { ascending: true })
+    else if (sortKey === 'name_desc') query = query.order('name', { ascending: false })
+    else if (sortKey === 'newest') {
+      query = query
+        .order('updated_at', { ascending: false, nullsFirst: false })
+        .order('created_at', { ascending: false, nullsFirst: false })
+    } else {
+      // Default: newest first
+      query = query
+        .order('created_at', { ascending: false, nullsFirst: false })
     }
 
-    return NextResponse.json(list)
+    if (usePagination) {
+      const fromIndex = (page - 1) * limit
+      const toIndex = fromIndex + limit - 1
+      const { data, error, count } = await query.range(fromIndex, toIndex)
+      if (error) {
+        console.error('GET /api/products (supabase):', error)
+        return NextResponse.json(
+          { error: 'Failed to fetch products' },
+          { status: 500 }
+        )
+      }
+      const total = count ?? data?.length ?? 0
+      const totalPages = Math.max(1, Math.ceil(total / limit))
+      return NextResponse.json({
+        products: (data || []) as Product[],
+        total,
+        page,
+        limit,
+        totalPages,
+      })
+    }
+
+    const { data, error } = await query
+    if (error) {
+      console.error('GET /api/products (supabase, no pagination):', error)
+      return NextResponse.json(
+        { error: 'Failed to fetch products' },
+        { status: 500 }
+      )
+    }
+    return NextResponse.json((data || []) as Product[])
   } catch (error) {
     return NextResponse.json(
       { error: 'Failed to fetch products' },
@@ -129,45 +188,46 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create new product
-    const newProduct: Product = {
-      id: `product-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+    const supabase = getSupabase()
+    if (!supabase) {
+      console.error('POST /api/products: Supabase is not configured')
+      return NextResponse.json(
+        { error: 'Supabase is not configured on the server' },
+        { status: 500 }
+      )
+    }
+
+    const insertPayload: Record<string, unknown> = {
+      tenant_id: tenant.id,
       name: productData.name || '',
       description: productData.description || '',
       price: productData.price || 0,
       image: productData.image || '',
       category: productData.category || '',
-      stock: productData.stock ?? undefined,
-      sku: productData.sku || undefined,
-      featured: productData.featured || false,
+      stock: productData.stock ?? null,
+      sku: productData.sku || null,
+      featured: productData.featured ?? false,
       status: productData.status || 'active',
-      seoTitle: productData.seoTitle || undefined,
-      seoDescription: productData.seoDescription || undefined,
-      seoKeywords: Array.isArray(productData.seoKeywords)
-        ? productData.seoKeywords
-        : typeof productData.seoKeywords === 'string'
-          ? productData.seoKeywords.split(',').map((k: string) => k.trim()).filter(Boolean)
-          : undefined,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      seo_title: productData.seoTitle || null,
+      seo_description: productData.seoDescription || null,
+      seo_keywords: productData.seoKeywords ?? null,
     }
 
-    const products = tenant.config.products || []
-    products.push(newProduct)
+    const { data, error } = await supabase
+      .from('products')
+      .insert(insertPayload)
+      .select('*')
+      .single()
 
-    const updatedTenant = await updateTenantConfig(subdomain, {
-      products,
-    })
-
-    if (!updatedTenant) {
-      console.error('POST /api/products: updateTenantConfig returned null for subdomain', subdomain)
+    if (error) {
+      console.error('POST /api/products (supabase):', error)
       return NextResponse.json(
-        { error: 'Failed to save tenant config. Tenant may have been deleted.' },
+        { error: 'Failed to create product' },
         { status: 500 }
       )
     }
 
-    return NextResponse.json(newProduct, { status: 201 })
+    return NextResponse.json(data as Product, { status: 201 })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to create product'
     console.error('POST /api/products:', error)
