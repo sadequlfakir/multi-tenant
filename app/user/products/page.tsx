@@ -16,8 +16,28 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { ImageUrlOrUpload } from '@/components/image-url-or-upload'
-import { Product, Category, Tenant } from '@/lib/types'
+import { Product, Category, Tenant, VariantOptionSet, VariantOptionSchema } from '@/lib/types'
 import { Plus, Edit, Trash2, Package } from 'lucide-react'
+
+function schemaEqual(a: VariantOptionSchema[] | undefined, b: VariantOptionSchema[] | undefined): boolean {
+  if (!a?.length && !b?.length) return true
+  if (!a?.length || !b?.length || a.length !== b.length) return false
+  return a.every((opt, i) => {
+    const o = b[i]
+    if (!o || opt.name !== o.name) return false
+    if (opt.values?.length !== o.values?.length) return false
+    return opt.values.every((v, j) => v === o.values?.[j])
+  })
+}
+
+function cartesianProduct(schema: VariantOptionSchema[]): Array<Record<string, string>> {
+  if (!schema.length) return []
+  const [head, ...tail] = schema.filter((s) => s.name && s.values?.length)
+  if (!head) return []
+  const rest = cartesianProduct(tail)
+  if (!rest.length) return head.values!.map((v) => ({ [head.name]: v }))
+  return head.values!.flatMap((v) => rest.map((r) => ({ [head.name]: v, ...r })))
+}
 
 export default function ProductsManagementPage() {
   const router = useRouter()
@@ -25,25 +45,8 @@ export default function ProductsManagementPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null)
-  const [imageFile, setImageFile] = useState<File | null>(null)
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    price: '',
-    image: '',
-    category: '',
-    stock: '',
-    sku: '',
-    featured: false,
-    status: 'active' as Product['status'],
-    seoTitle: '',
-    seoDescription: '',
-    seoKeywords: '',
-  })
+  const [variantOptionSets, setVariantOptionSets] = useState<VariantOptionSet[]>([])
 
   useEffect(() => {
     const token = localStorage.getItem('userToken')
@@ -77,9 +80,10 @@ export default function ProductsManagementPage() {
         setTenant(userTenant)
 
         if (userTenant.template === 'ecommerce') {
-          const [productsRes, categoriesRes] = await Promise.all([
+          const [productsRes, categoriesRes, variantSetsRes] = await Promise.all([
             fetch(`/api/products?subdomain=${userTenant.subdomain}`),
             fetch(`/api/categories?subdomain=${userTenant.subdomain}`),
+            fetch(`/api/variant-option-sets?subdomain=${userTenant.subdomain}`),
           ])
           if (productsRes.ok) {
             const productsData = await productsRes.json()
@@ -89,6 +93,10 @@ export default function ProductsManagementPage() {
             const categoriesData = await categoriesRes.json()
             setCategories(categoriesData)
           }
+          if (variantSetsRes.ok) {
+            const variantSetsData = await variantSetsRes.json()
+            setVariantOptionSets(variantSetsData)
+          }
         } else {
           router.push('/user/dashboard')
         }
@@ -97,122 +105,6 @@ export default function ProductsManagementPage() {
       console.error('Failed to load data:', error)
     } finally {
       setLoading(false)
-    }
-  }
-
-  const handleOpenDialog = (product?: Product) => {
-    setImageFile(null)
-    if (product) {
-      setEditingProduct(product)
-      setFormData({
-        name: product.name,
-        description: product.description || '',
-        price: product.price.toString(),
-        image: product.image || '',
-        category: product.category || '',
-        stock: product.stock?.toString() || '',
-        sku: product.sku || '',
-        featured: product.featured || false,
-        status: product.status || 'active',
-        seoTitle: product.seoTitle || '',
-        seoDescription: product.seoDescription || '',
-        seoKeywords: Array.isArray(product.seoKeywords)
-          ? product.seoKeywords.join(', ')
-          : '',
-      })
-    } else {
-      setEditingProduct(null)
-      setFormData({
-        name: '',
-        description: '',
-        price: '',
-        image: '',
-        category: '',
-        stock: '',
-        sku: '',
-        featured: false,
-        status: 'active',
-        seoTitle: '',
-        seoDescription: '',
-        seoKeywords: '',
-      })
-    }
-    setIsDialogOpen(true)
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!tenant) return
-
-    const token = localStorage.getItem('userToken')
-    if (!token) return
-
-    setSaving(true)
-    try {
-      let imageUrl = formData.image.trim()
-      if (imageFile) {
-        const form = new FormData()
-        form.append('file', imageFile)
-        const uploadRes = await fetch('/api/upload/cloudinary', {
-          method: 'POST',
-          body: form,
-        })
-        const uploadData = await uploadRes.json()
-        if (!uploadRes.ok) throw new Error(uploadData.error || 'Image upload failed')
-        imageUrl = uploadData.url
-      }
-
-      const payload = {
-        subdomain: tenant.subdomain,
-        name: formData.name.trim(),
-        description: formData.description.trim(),
-        price: parseFloat(formData.price) || 0,
-        image: imageUrl,
-        category: formData.category.trim() || undefined,
-        stock: formData.stock ? parseInt(formData.stock) : undefined,
-        sku: formData.sku.trim() || undefined,
-        featured: formData.featured,
-        status: formData.status,
-        seoTitle: formData.seoTitle.trim() || undefined,
-        seoDescription: formData.seoDescription.trim() || undefined,
-        seoKeywords: formData.seoKeywords
-          ? formData.seoKeywords.split(',').map((k) => k.trim()).filter(Boolean)
-          : undefined,
-      }
-
-      let response
-      if (editingProduct) {
-        response = await fetch(`/api/products/${editingProduct.id}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(payload),
-        })
-      } else {
-        response = await fetch('/api/products', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(payload),
-        })
-      }
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to save product')
-      }
-
-      setImageFile(null)
-      setIsDialogOpen(false)
-      loadData(token)
-    } catch (error: unknown) {
-      alert(error instanceof Error ? error.message : 'Failed to save product')
-    } finally {
-      setSaving(false)
     }
   }
 
@@ -269,7 +161,7 @@ export default function ProductsManagementPage() {
               </p>
             </div>
             <Button
-              onClick={() => handleOpenDialog()}
+              onClick={() => router.push('/user/products/new')}
               className="bg-gradient-to-r from-blue-500 to-indigo-600"
             >
               <Plus className="w-4 h-4 mr-2" />
@@ -289,7 +181,7 @@ export default function ProductsManagementPage() {
                 Add your first product to start selling.
               </p>
               <Button
-                onClick={() => handleOpenDialog()}
+                onClick={() => router.push('/user/products/new')}
                 className="bg-gradient-to-r from-blue-500 to-indigo-600"
               >
                 <Plus className="w-4 h-4 mr-2" />
@@ -332,7 +224,7 @@ export default function ProductsManagementPage() {
                       variant="outline"
                       size="sm"
                       className="flex-1"
-                      onClick={() => handleOpenDialog(product)}
+                      onClick={() => router.push(`/user/products/${product.id}`)}
                     >
                       <Edit className="w-4 h-4 mr-2" />
                       Edit
@@ -353,191 +245,6 @@ export default function ProductsManagementPage() {
           </div>
         )}
       </main>
-
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {editingProduct ? 'Edit Product' : 'Add New Product'}
-            </DialogTitle>
-            <DialogDescription>
-              {editingProduct
-                ? 'Update product details'
-                : 'Add a new product to your store'}
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <Label htmlFor="name">Name *</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Product name"
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="description">Description</Label>
-              <textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData({ ...formData, description: e.target.value })
-                }
-                placeholder="Product description"
-                className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="price">Price *</Label>
-                <Input
-                  id="price"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={formData.price}
-                  onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                  placeholder="0.00"
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="stock">Stock</Label>
-                <Input
-                  id="stock"
-                  type="number"
-                  min="0"
-                  value={formData.stock}
-                  onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
-                  placeholder="0"
-                />
-              </div>
-            </div>
-            <ImageUrlOrUpload
-              id="image"
-              label="Image"
-              value={formData.image}
-              onChange={(url) => {
-                setImageFile(null)
-                setFormData({ ...formData, image: url })
-              }}
-              onFileSelect={(file) => {
-                setImageFile(file ?? null)
-                if (file) setFormData({ ...formData, image: '' })
-              }}
-              placeholder="https://example.com/image.jpg"
-              showPreview
-              previewSize="lg"
-            />
-            <div>
-              <Label htmlFor="category">Category</Label>
-              <select
-                id="category"
-                value={formData.category}
-                onChange={(e) =>
-                  setFormData({ ...formData, category: e.target.value })
-                }
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <option value="">None</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.name}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <Label htmlFor="sku">SKU</Label>
-              <Input
-                id="sku"
-                value={formData.sku}
-                onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
-                placeholder="SKU-001"
-              />
-            </div>
-            <div className="flex items-center gap-4">
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={formData.featured}
-                  onChange={(e) =>
-                    setFormData({ ...formData, featured: e.target.checked })
-                  }
-                  className="rounded border-input"
-                />
-                <span className="text-sm">Featured</span>
-              </label>
-              <div>
-                <Label htmlFor="status" className="sr-only">Status</Label>
-                <select
-                  id="status"
-                  value={formData.status}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      status: e.target.value as Product['status'],
-                    })
-                  }
-                  className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
-                  <option value="active">Active</option>
-                  <option value="draft">Draft</option>
-                  <option value="archived">Archived</option>
-                </select>
-              </div>
-            </div>
-            <div className="border-t pt-4 space-y-2">
-              <p className="text-sm font-medium text-gray-700">SEO (optional)</p>
-              <div>
-                <Label htmlFor="seoTitle">SEO Title</Label>
-                <Input
-                  id="seoTitle"
-                  value={formData.seoTitle}
-                  onChange={(e) =>
-                    setFormData({ ...formData, seoTitle: e.target.value })
-                  }
-                  placeholder="Custom meta title"
-                />
-              </div>
-              <div>
-                <Label htmlFor="seoDescription">SEO Description</Label>
-                <textarea
-                  id="seoDescription"
-                  value={formData.seoDescription}
-                  onChange={(e) =>
-                    setFormData({ ...formData, seoDescription: e.target.value })
-                  }
-                  placeholder="Custom meta description"
-                  className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  rows={2}
-                />
-              </div>
-              <div>
-                <Label htmlFor="seoKeywords">SEO Keywords (comma-separated)</Label>
-                <Input
-                  id="seoKeywords"
-                  value={formData.seoKeywords}
-                  onChange={(e) =>
-                    setFormData({ ...formData, seoKeywords: e.target.value })
-                  }
-                  placeholder="keyword1, keyword2"
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                Cancel
-              </Button>
-              <ButtonWithLoader type="submit" loading={saving} loadingLabel={editingProduct ? 'Updating...' : 'Creating...'} className="bg-gradient-to-r from-blue-500 to-indigo-600">
-                {editingProduct ? 'Update Product' : 'Create Product'}
-              </ButtonWithLoader>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
     </>
   )
 }

@@ -16,7 +16,11 @@ interface CartPageProps {
 export default function CartPage({ tenant }: CartPageProps) {
   const { cart, removeFromCart, updateQuantity, clearCart, maxQuantityPerProduct } = useCart()
 
-  const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  const total = cart.reduce(
+    (sum, item) =>
+      sum + (item.price + (item.variantPriceAdjustment ?? 0)) * item.quantity,
+    0
+  )
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
@@ -50,9 +54,16 @@ export default function CartPage({ tenant }: CartPageProps) {
             <div className="md:col-span-2 space-y-4">
               {cart.map((item) => {
                 const maxQty = item.stock != null && item.stock >= 0 ? Math.min(maxQuantityPerProduct, item.stock) : maxQuantityPerProduct
-                const subtotal = item.price * item.quantity
+                const unitPrice = item.price + (item.variantPriceAdjustment ?? 0)
+                const subtotal = unitPrice * item.quantity
+                const variantLabel =
+                  item.variantOptions && Object.keys(item.variantOptions).length > 0
+                    ? Object.entries(item.variantOptions)
+                        .map(([k, v]) => `${k}: ${v}`)
+                        .join(' · ')
+                    : null
                 return (
-                  <Card key={item.productId}>
+                  <Card key={`${item.productId}:${item.variantId ?? ''}`}>
                     <CardContent className="p-6">
                       <div className="flex gap-6">
                         <Link href={getTenantLink(tenant, `/products/${item.productId}`)} className="shrink-0">
@@ -66,20 +77,23 @@ export default function CartPage({ tenant }: CartPageProps) {
                           <Link href={getTenantLink(tenant, `/products/${item.productId}`)}>
                             <h3 className="text-xl font-bold mb-2 text-foreground hover:underline">{item.name}</h3>
                           </Link>
+                          {variantLabel && (
+                            <p className="text-sm text-muted-foreground mb-1">{variantLabel}</p>
+                          )}
                           {item.description && (
                             <p className="text-muted-foreground mb-4 line-clamp-2 text-sm">{item.description}</p>
                           )}
                           <div className="flex items-center justify-between flex-wrap gap-4">
                             <div className="flex items-center gap-4">
                               <div>
-                                <p className="text-2xl font-bold">${Number(item.price).toFixed(2)}</p>
+                                <p className="text-2xl font-bold">${unitPrice.toFixed(2)}</p>
                                 <p className="text-sm text-muted-foreground">Subtotal: ${subtotal.toFixed(2)}</p>
                               </div>
                               <div className="flex items-center gap-0 border rounded-lg bg-muted/30">
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => updateQuantity(item.productId, item.quantity - 1)}
+                                  onClick={() => updateQuantity(item.productId, item.quantity - 1, item.variantId)}
                                   className="h-9 w-9 p-0 rounded-r-none"
                                   aria-label="Decrease quantity"
                                 >
@@ -89,7 +103,9 @@ export default function CartPage({ tenant }: CartPageProps) {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => updateQuantity(item.productId, Math.min(item.quantity + 1, maxQty))}
+                                  onClick={() =>
+                                    updateQuantity(item.productId, Math.min(item.quantity + 1, maxQty), item.variantId)
+                                  }
                                   className="h-9 w-9 p-0 rounded-l-none"
                                   disabled={item.quantity >= maxQty}
                                   aria-label="Increase quantity"
@@ -104,7 +120,7 @@ export default function CartPage({ tenant }: CartPageProps) {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => removeFromCart(item.productId)}
+                              onClick={() => removeFromCart(item.productId, item.variantId)}
                               className="text-destructive hover:text-destructive hover:bg-destructive/10"
                               aria-label="Remove from cart"
                             >

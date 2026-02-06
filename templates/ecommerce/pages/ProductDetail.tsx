@@ -1,14 +1,25 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Tenant, Product } from '@/lib/types'
+import { Tenant, Product, ProductVariant } from '@/lib/types'
 import { getTenantLink } from '@/lib/link-utils'
 import { ShoppingCart, ArrowLeft } from 'lucide-react'
 import { useCart } from '@/lib/cart-context'
 import { EcommerceHeader } from '@/components/ecommerce-header'
+
+function findVariant(variants: ProductVariant[] | undefined, options: Record<string, string>): ProductVariant | null {
+  if (!variants?.length) return null
+  return (
+    variants.find((v) => {
+      const vOpts = v.options ?? {}
+      if (Object.keys(vOpts).length !== Object.keys(options).length) return false
+      return Object.entries(options).every(([k, v]) => vOpts[k] === v)
+    }) ?? null
+  )
+}
 
 interface ProductDetailProps {
   tenant: Tenant
@@ -20,7 +31,27 @@ export default function ProductDetail({ tenant, productId }: ProductDetailProps)
   const [product, setProduct] = useState<Product | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  /** Selected variant options, e.g. { Color: 'Red', Size: 'S' }. */
+  const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({})
   const { addToCart: addToCartContext } = useCart()
+
+  const selectedVariant = useMemo(
+    () => (product?.variants ? findVariant(product.variants, selectedOptions) : null),
+    [product?.variants, selectedOptions]
+  )
+  const effectivePrice = product
+    ? product.price + (selectedVariant?.priceAdjustment ?? 0)
+    : 0
+  const effectiveStock =
+    product?.variantSchema?.length && product.variants?.length
+      ? selectedVariant?.stock ?? null
+      : product?.stock ?? null
+  const hasVariants = Boolean(product?.variantSchema?.length && product.variants?.length)
+  const allOptionsSelected =
+    !hasVariants ||
+    (product?.variantSchema?.every((opt) => selectedOptions[opt.name]) ?? false)
+  const canAddToCart =
+    !hasVariants || (allOptionsSelected && (effectiveStock == null || effectiveStock > 0))
 
   useEffect(() => {
     let cancelled = false
@@ -30,7 +61,7 @@ export default function ProductDetail({ tenant, productId }: ProductDetailProps)
         setLoading(true)
         setError(null)
         const res = await fetch(
-          `/api/products/${productId}`
+          `/api/products/${productId}?subdomain=${encodeURIComponent(tenant.subdomain)}`
         )
         const data = await res.json()
         if (!res.ok) {
@@ -53,6 +84,21 @@ export default function ProductDetail({ tenant, productId }: ProductDetailProps)
       cancelled = true
     }
   }, [productId, tenant.subdomain])
+
+  useEffect(() => {
+    if (!product?.variantSchema?.length) return
+    setSelectedOptions((prev) => {
+      const next: Record<string, string> = {}
+      for (const opt of product.variantSchema ?? []) {
+        if (prev[opt.name] && opt.values.includes(prev[opt.name])) {
+          next[opt.name] = prev[opt.name]
+        } else if (opt.values[0]) {
+          next[opt.name] = opt.values[0]
+        }
+      }
+      return Object.keys(next).length ? next : prev
+    })
+  }, [product?.id, product?.variantSchema])
 
   if (loading) {
     return (
@@ -86,7 +132,10 @@ export default function ProductDetail({ tenant, productId }: ProductDetailProps)
         image: product.image,
         price: product.price,
         description: product.description,
-        stock: product.stock,
+        stock: hasVariants ? (selectedVariant?.stock ?? 0) : product.stock,
+        variantId: selectedVariant?.id,
+        variantOptions: hasVariants ? selectedOptions : undefined,
+        variantPriceAdjustment: selectedVariant?.priceAdjustment,
       },
       quantity
     )
@@ -124,11 +173,39 @@ export default function ProductDetail({ tenant, productId }: ProductDetailProps)
 
           <div>
             <h1 className="text-4xl font-bold mb-4 text-foreground">{product.name}</h1>
-            <p className="text-3xl font-bold text-primary mb-6">${product.price}</p>
+            <p className="text-3xl font-bold text-primary mb-6">${effectivePrice.toFixed(2)}</p>
             <p className="text-muted-foreground mb-6 text-lg">{product.description}</p>
-            
+
             {product.category && (
               <p className="text-sm text-muted-foreground mb-6">Category: {product.category}</p>
+            )}
+
+            {hasVariants &&
+              product.variantSchema?.map((opt) => (
+                <div key={opt.name} className="mb-4">
+                  <label className="font-semibold block mb-2">{opt.name}</label>
+                  <div className="flex flex-wrap gap-2">
+                    {opt.values.map((val) => (
+                      <Button
+                        key={val}
+                        type="button"
+                        variant={selectedOptions[opt.name] === val ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() =>
+                          setSelectedOptions((prev) => ({ ...prev, [opt.name]: val }))
+                        }
+                      >
+                        {val}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+
+            {effectiveStock != null && effectiveStock >= 0 && (
+              <p className="text-sm text-muted-foreground mb-4">
+                {effectiveStock > 0 ? `In stock: ${effectiveStock}` : 'Out of stock'}
+              </p>
             )}
 
             <Card className="mb-6">
@@ -152,25 +229,35 @@ export default function ProductDetail({ tenant, productId }: ProductDetailProps)
                         setQuantity((q) =>
                           Math.min(
                             q + 1,
-                            product.stock != null && product.stock >= 0 ? product.stock : 99
+                            effectiveStock != null && effectiveStock >= 0 ? effectiveStock : 99
                           )
                         )
                       }
                       disabled={
-                        product.stock != null && product.stock >= 0 && quantity >= product.stock
+                        effectiveStock != null && effectiveStock >= 0 && quantity >= effectiveStock
                       }
                       aria-label="Increase quantity"
                     >
                       +
                     </Button>
                   </div>
-                  {product.stock != null && product.stock >= 0 && (
-                    <span className="text-sm text-muted-foreground">Max: {product.stock}</span>
+                  {effectiveStock != null && effectiveStock >= 0 && (
+                    <span className="text-sm text-muted-foreground">Max: {effectiveStock}</span>
                   )}
                 </div>
-                <Button className="w-full" size="lg" onClick={addToCart} data-add-to-cart>
+                <Button
+                  className="w-full"
+                  size="lg"
+                  onClick={addToCart}
+                  data-add-to-cart
+                  disabled={!canAddToCart}
+                >
                   <ShoppingCart className="w-5 h-5 mr-2" />
-                  Add to Cart
+                  {!allOptionsSelected
+                    ? 'Select options'
+                    : effectiveStock === 0
+                      ? 'Out of stock'
+                      : 'Add to Cart'}
                 </Button>
               </CardContent>
             </Card>

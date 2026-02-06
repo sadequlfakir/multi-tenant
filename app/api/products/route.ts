@@ -5,6 +5,7 @@ import { readUsers } from '@/lib/storage'
 import { getTenantSubdomainFromRequest } from '@/lib/api-tenant'
 import { Product } from '@/lib/types'
 import { getSupabase } from '@/lib/supabase'
+import { mapProductRow, mapVariantRow } from '@/lib/product-api-mapper'
 
 // GET - List products. Storefront (no auth) gets ONLY active. Dashboard (auth) gets all.
 // Query: featured, search (q), category (name or slug), min_price, max_price, sort (price_asc|...), page, limit.
@@ -211,6 +212,7 @@ export async function POST(request: NextRequest) {
       seo_title: productData.seoTitle || null,
       seo_description: productData.seoDescription || null,
       seo_keywords: productData.seoKeywords ?? null,
+      variant_schema: productData.variantSchema ?? null,
     }
 
     const { data, error } = await supabase
@@ -227,7 +229,28 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    return NextResponse.json(data as Product, { status: 201 })
+    const productId = (data as { id: string }).id
+    const variantsPayload = productData.variants as Array<{ options: Record<string, string>; sku?: string; priceAdjustment?: number; stock?: number }> | undefined
+    if (Array.isArray(variantsPayload) && variantsPayload.length > 0) {
+      for (const v of variantsPayload) {
+        await supabase.from('product_variants').insert({
+          product_id: productId,
+          options: v.options ?? {},
+          sku: v.sku ?? null,
+          price_adjustment: v.priceAdjustment ?? 0,
+          stock: v.stock ?? null,
+        })
+      }
+    }
+
+    const productMapped = mapProductRow(data as Record<string, unknown>)
+    const { data: variantsData } = await supabase
+      .from('product_variants')
+      .select('*')
+      .eq('product_id', productId)
+      .order('created_at', { ascending: true })
+    const variants = (variantsData ?? []).map((v) => mapVariantRow(v as Record<string, unknown>))
+    return NextResponse.json({ ...productMapped, variants } as Product, { status: 201 })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to create product'
     console.error('POST /api/products:', error)

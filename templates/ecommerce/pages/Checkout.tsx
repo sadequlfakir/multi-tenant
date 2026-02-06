@@ -36,14 +36,17 @@ export default function CheckoutPage({ tenant }: CheckoutPageProps) {
     cvv: '',
   })
 
-  const orderItems: OrderItem[] = cart.map((item) => ({
-    productId: item.productId,
-    productName: item.name,
-    productImage: item.image,
-    quantity: item.quantity,
-    price: item.price,
-    subtotal: item.price * item.quantity,
-  }))
+  const orderItems: OrderItem[] = cart.map((item) => {
+    const unitPrice = item.price + (item.variantPriceAdjustment ?? 0)
+    return {
+      productId: item.productId,
+      productName: item.name,
+      productImage: item.image,
+      quantity: item.quantity,
+      price: unitPrice,
+      subtotal: unitPrice * item.quantity,
+    }
+  })
 
   const subtotal = orderItems.reduce((sum, item) => sum + item.subtotal, 0)
   const shippingCost = 0 // Can be calculated based on address

@@ -17,7 +17,8 @@ import {
   LogOut,
   Image,
   ShoppingBag,
-  Users
+  Users,
+  Layers
 } from 'lucide-react'
 import { Button } from './button'
 
@@ -50,6 +51,11 @@ export function Sidebar({ tenant, onLogout }: SidebarProps) {
             name: 'Categories',
             href: '/user/categories',
             icon: FolderKanban,
+          },
+          {
+            name: 'Variants',
+            href: '/user/variants',
+            icon: Layers,
           },
           {
             name: 'Home Collections',

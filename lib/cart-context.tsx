@@ -11,22 +11,34 @@ export interface CartProductSnapshot {
   description?: string
   /** If set, quantity cannot exceed this (stock). */
   stock?: number
+  /** Variant id when product has variants. */
+  variantId?: string
+  /** e.g. { Color: 'Red', Size: 'S' } for display. */
+  variantOptions?: Record<string, string>
+  /** Added to base price for display. */
+  variantPriceAdjustment?: number
 }
 
 export interface CartItem {
   productId: string
   quantity: number
-  /** Stored at add time; required for cart display. Items without are dropped on load. */
   name: string
   image: string
   price: number
   description?: string
   stock?: number
+  variantId?: string
+  variantOptions?: Record<string, string>
+  variantPriceAdjustment?: number
 }
 
 const STORAGE_KEY_PREFIX = 'cart-'
 const MAX_QUANTITY_PER_PRODUCT = 99
 const MAX_CART_ITEMS = 100
+
+function cartItemKey(item: { productId: string; variantId?: string }) {
+  return `${item.productId}:${item.variantId ?? ''}`
+}
 
 function isValidCartItem(item: unknown): item is CartItem {
   if (!item || typeof item !== 'object') return false
@@ -92,7 +104,9 @@ export function CartProvider({ children, tenantId }: { children: ReactNode; tena
         : MAX_QUANTITY_PER_PRODUCT
 
     setCart((prevCart) => {
-      const existing = prevCart.find((item) => item.productId === product.id)
+      const existing = prevCart.find(
+        (item) => item.productId === product.id && (item.variantId ?? '') === (product.variantId ?? '')
+      )
       const currentQty = existing ? existing.quantity : 0
       const addedQty = Math.min(quantity, Math.max(0, maxForProduct - currentQty))
       if (addedQty <= 0) return prevCart
@@ -110,15 +124,22 @@ export function CartProvider({ children, tenantId }: { children: ReactNode; tena
         price: product.price,
         description: product.description,
         stock: product.stock,
+        variantId: product.variantId,
+        variantOptions: product.variantOptions,
+        variantPriceAdjustment: product.variantPriceAdjustment,
       }
 
       if (existing) {
-        return prevCart.map((item) => (item.productId === product.id ? snapshot : item))
+        return prevCart.map((item) =>
+          item.productId === product.id && (item.variantId ?? '') === (product.variantId ?? '') ? snapshot : item
+        )
       }
       return [...prevCart, snapshot]
     })
 
-    const existing = cart.find((item) => item.productId === product.id)
+    const existing = cart.find(
+      (item) => item.productId === product.id && (item.variantId ?? '') === (product.variantId ?? '')
+    )
     const currentQty = existing ? existing.quantity : 0
     const wouldAdd = Math.min(quantity, Math.max(0, maxForProduct - currentQty))
     const totalItems = cart.reduce((s, i) => s + i.quantity, 0)
@@ -147,18 +168,22 @@ export function CartProvider({ children, tenantId }: { children: ReactNode; tena
     return { success: true }
   }
 
-  const removeFromCart = (productId: string) => {
-    setCart((prev) => prev.filter((item) => item.productId !== productId))
+  const removeFromCart = (productId: string, variantId?: string) => {
+    setCart((prev) =>
+      prev.filter(
+        (item) => !(item.productId === productId && (item.variantId ?? '') === (variantId ?? ''))
+      )
+    )
   }
 
-  const updateQuantity = (productId: string, quantity: number) => {
+  const updateQuantity = (productId: string, quantity: number, variantId?: string) => {
     if (quantity < 1) {
-      removeFromCart(productId)
+      removeFromCart(productId, variantId)
       return
     }
     setCart((prev) =>
       prev.map((item) => {
-        if (item.productId !== productId) return item
+        if (item.productId !== productId || (item.variantId ?? '') !== (variantId ?? '')) return item
         const max = item.stock != null && item.stock >= 0 ? Math.min(MAX_QUANTITY_PER_PRODUCT, item.stock) : MAX_QUANTITY_PER_PRODUCT
         const qty = Math.min(quantity, max)
         return { ...item, quantity: qty }

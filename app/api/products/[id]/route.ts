@@ -6,6 +6,7 @@ import { getTenantSubdomainFromRequest } from '@/lib/api-tenant'
 import { Product } from '@/lib/types'
 import { isCloudinaryUrl, deleteByUrl } from '@/lib/cloudinary'
 import { getSupabase } from '@/lib/supabase'
+import { mapProductRow, mapVariantRow } from '@/lib/product-api-mapper'
 
 // GET - Tenant from Host or query. Storefront gets only active; dashboard gets any status.
 export async function GET(
@@ -71,7 +72,15 @@ export async function GET(
       )
     }
 
-    return NextResponse.json(data as Product)
+    const productMapped = mapProductRow(data as Record<string, unknown>)
+    const { data: variantsData } = await supabase
+      .from('product_variants')
+      .select('*')
+      .eq('product_id', id)
+      .order('created_at', { ascending: true })
+    const variants = (variantsData ?? []).map((v) => mapVariantRow(v as Record<string, unknown>))
+    const result: Product = { ...productMapped, variants }
+    return NextResponse.json(result)
   } catch (error) {
     return NextResponse.json(
       { error: 'Failed to fetch product' },
@@ -186,6 +195,7 @@ export async function PUT(
       seo_title: productData.seoTitle ?? (existing as any).seo_title,
       seo_description: productData.seoDescription ?? (existing as any).seo_description,
       seo_keywords: seoKeywords ?? null,
+      variant_schema: productData.variantSchema !== undefined ? productData.variantSchema : (existing as any).variant_schema,
       updated_at: new Date().toISOString(),
     }
 
@@ -205,7 +215,28 @@ export async function PUT(
       )
     }
 
-    return NextResponse.json(data as Product)
+    const variantsPayload = productData.variants as Array<{ options: Record<string, string>; sku?: string; priceAdjustment?: number; stock?: number }> | undefined
+    if (variantsPayload !== undefined) {
+      await supabase.from('product_variants').delete().eq('product_id', id)
+      for (const v of variantsPayload) {
+        await supabase.from('product_variants').insert({
+          product_id: id,
+          options: v.options ?? {},
+          sku: v.sku ?? null,
+          price_adjustment: v.priceAdjustment ?? 0,
+          stock: v.stock ?? null,
+        })
+      }
+    }
+
+    const productMapped = mapProductRow(data as Record<string, unknown>)
+    const { data: variantsData } = await supabase
+      .from('product_variants')
+      .select('*')
+      .eq('product_id', id)
+      .order('created_at', { ascending: true })
+    const variants = (variantsData ?? []).map((v) => mapVariantRow(v as Record<string, unknown>))
+    return NextResponse.json({ ...productMapped, variants } as Product)
   } catch (error) {
     return NextResponse.json(
       { error: 'Failed to update product' },

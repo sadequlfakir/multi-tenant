@@ -27,6 +27,7 @@ export interface TenantConfig {
   // E-commerce specific
   products?: Product[]
   categories?: Category[]
+  variantOptionSets?: VariantOptionSet[]
   collections?: Collection[]
   sliders?: Slider[]
   banners?: Banner[]
@@ -67,6 +68,33 @@ export interface TenantConfig {
   }
 }
 
+/** Defines one variant dimension, e.g. Color with values Red, Blue */
+export interface VariantOptionSchema {
+  name: string
+  values: string[]
+}
+
+/** Reusable variant definition (e.g. "T-shirt options": Color + Size) stored per tenant */
+export interface VariantOptionSet {
+  id: string
+  name: string
+  schema: VariantOptionSchema[]
+  createdAt?: string
+  updatedAt?: string
+}
+
+/** One purchasable variant (e.g. Red / Size S) with its own SKU, price adjustment, stock */
+export interface ProductVariant {
+  id: string
+  productId: string
+  options: Record<string, string>
+  sku?: string
+  priceAdjustment: number
+  stock?: number
+  createdAt?: string
+  updatedAt?: string
+}
+
 export interface Product {
   id: string
   name: string
@@ -78,6 +106,10 @@ export interface Product {
   sku?: string
   featured?: boolean
   status?: 'active' | 'draft' | 'archived'
+  /** Variant dimensions (e.g. Color, Size) and their values */
+  variantSchema?: VariantOptionSchema[]
+  /** Variant rows with inventory; populated on GET /api/products/[id] */
+  variants?: ProductVariant[]
   /** SEO: custom meta title (defaults to name) */
   seoTitle?: string
   /** SEO: custom meta description (defaults to description) */
