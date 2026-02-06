@@ -3,16 +3,15 @@ import { getTenantBySubdomain } from '@/lib/tenant-store'
 import { getTenantSubdomainFromRequest } from '@/lib/api-tenant'
 import { readOrders } from '@/lib/storage'
 
-// Public API: track order by order number + email (no auth). Tenant from Host or query.
+// Public API: track order by order number only (no auth). Tenant from Host or query.
 export async function GET(request: NextRequest) {
   try {
     const subdomain = getTenantSubdomainFromRequest(request)
     const orderNumber = request.nextUrl.searchParams.get('orderNumber')
-    const email = request.nextUrl.searchParams.get('email')
 
-    if (!subdomain || !orderNumber || !email) {
+    if (!subdomain || !orderNumber || !String(orderNumber).trim()) {
       return NextResponse.json(
-        { error: 'Store (tenant), order number, and email are required' },
+        { error: 'Store (tenant) and order number are required' },
         { status: 400 }
       )
     }
@@ -34,17 +33,7 @@ export async function GET(request: NextRequest) {
 
     if (!order) {
       return NextResponse.json(
-        { error: 'Order not found. Check your order number and email.' },
-        { status: 404 }
-      )
-    }
-
-    const emailMatch =
-      order.customer?.email &&
-      String(order.customer.email).toLowerCase().trim() === String(email).toLowerCase().trim()
-    if (!emailMatch) {
-      return NextResponse.json(
-        { error: 'Order not found. Check your order number and email.' },
+        { error: 'Order not found. Check your order number.' },
         { status: 404 }
       )
     }

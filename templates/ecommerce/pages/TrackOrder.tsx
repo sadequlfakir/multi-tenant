@@ -16,8 +16,11 @@ import {
   Truck,
   MapPin,
   AlertCircle,
+  ArrowLeft,
+  Receipt,
 } from 'lucide-react'
 import { EcommerceHeader } from '@/components/ecommerce-header'
+import { cn } from '@/lib/utils'
 
 type TrackStatus = 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled'
 
@@ -44,16 +47,36 @@ interface TrackOrderProps {
   tenant: Tenant
 }
 
-const STATUS_STEPS: { key: TrackStatus; label: string; icon: typeof Clock }[] = [
-  { key: 'pending', label: 'Order placed', icon: CheckCircle2 },
+const STATUS_STEPS: { key: TrackStatus; label: string; icon: typeof Package }[] = [
+  { key: 'pending', label: 'Order placed', icon: Receipt },
   { key: 'processing', label: 'Processing', icon: Package },
   { key: 'shipped', label: 'Shipped', icon: Truck },
   { key: 'delivered', label: 'Delivered', icon: CheckCircle2 },
 ]
 
+function StatusBadge({ status }: { status: TrackStatus }) {
+  const styles: Record<TrackStatus, string> = {
+    pending: 'bg-amber-100 text-amber-800 border-amber-200',
+    processing: 'bg-blue-100 text-blue-800 border-blue-200',
+    shipped: 'bg-indigo-100 text-indigo-800 border-indigo-200',
+    delivered: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+    cancelled: 'bg-red-100 text-red-800 border-red-200',
+  }
+  const label = status.charAt(0).toUpperCase() + status.slice(1)
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center rounded-full border px-3 py-1 text-sm font-medium',
+        styles[status]
+      )}
+    >
+      {label}
+    </span>
+  )
+}
+
 export default function TrackOrder({ tenant }: TrackOrderProps) {
   const [orderNumber, setOrderNumber] = useState('')
-  const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<TrackOrderResult | null>(null)
@@ -62,8 +85,8 @@ export default function TrackOrder({ tenant }: TrackOrderProps) {
     e.preventDefault()
     setError(null)
     setResult(null)
-    if (!orderNumber.trim() || !email.trim()) {
-      setError('Please enter both order number and email.')
+    if (!orderNumber.trim()) {
+      setError('Please enter your order number.')
       return
     }
     setLoading(true)
@@ -71,7 +94,6 @@ export default function TrackOrder({ tenant }: TrackOrderProps) {
       const params = new URLSearchParams({
         subdomain: tenant.subdomain,
         orderNumber: orderNumber.trim(),
-        email: email.trim(),
       })
       const res = await fetch(`/api/track-order?${params}`)
       const data = await res.json()
@@ -95,179 +117,224 @@ export default function TrackOrder({ tenant }: TrackOrderProps) {
     : -1
 
   return (
-    <div className="flex flex-col min-h-screen h-full bg-background">
+    <div className="flex flex-col min-h-screen bg-background">
       <EcommerceHeader tenant={tenant} />
 
-      <section className="flex-1 container mx-auto px-4 py-12">
-        <div className="max-w-2xl mx-auto">
-          <div className="text-center mb-10">
-            <h1 className="text-3xl font-bold text-foreground mb-2">Track Your Order</h1>
-            <p className="text-muted-foreground">
-              Enter your order number and email to see the current status.
+      <section className="flex-1 container mx-auto px-4 py-8 md:py-12">
+        <div className="max-w-xl mx-auto">
+          {/* Lookup */}
+          <div className="text-center mb-8">
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight">Track your order</h1>
+            <p className="text-muted-foreground mt-1.5 text-sm md:text-base">
+              Enter the order number from your confirmation.
             </p>
           </div>
 
-          <Card className="mb-8">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Search className="w-5 h-5" />
-                Look up order
-              </CardTitle>
-              <CardDescription>
-                Use the order number and email from your confirmation.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
+          <Card className="border-border shadow-sm overflow-hidden">
+            <CardContent className="p-6">
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <Label htmlFor="orderNumber">Order number *</Label>
-                  <Input
-                    id="orderNumber"
-                    value={orderNumber}
-                    onChange={(e) => setOrderNumber(e.target.value)}
-                    placeholder="e.g. ORD-1234567890-ABC123"
-                    className="mt-1"
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="email">Email *</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="your@email.com"
-                    className="mt-1"
-                    required
-                  />
+                <div className="space-y-2">
+                  <Label htmlFor="orderNumber" className="text-foreground font-medium">
+                    Order number
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="orderNumber"
+                      value={orderNumber}
+                      onChange={(e) => setOrderNumber(e.target.value)}
+                      placeholder="e.g. ORD-1234567890-ABC123"
+                      className="flex-1 h-11"
+                      required
+                      disabled={loading}
+                    />
+                    <ButtonWithLoader
+                      type="submit"
+                      loading={loading}
+                      loadingLabel="Looking up…"
+                      className="h-11 px-6 shrink-0"
+                    >
+                      <Search className="w-4 h-4 md:mr-2" />
+                      <span className="hidden md:inline">Track</span>
+                    </ButtonWithLoader>
+                  </div>
                 </div>
                 {error && (
-                  <div className="flex items-center gap-2 text-red-600 text-sm">
+                  <div className="flex items-center gap-2 rounded-lg bg-destructive/10 text-destructive px-3 py-2.5 text-sm">
                     <AlertCircle className="w-4 h-4 shrink-0" />
                     {error}
                   </div>
                 )}
-                <ButtonWithLoader type="submit" loading={loading} loadingLabel="Searching…" className="w-full">
-                  <Search className="w-4 h-4 mr-2" />
-                  Track order
-                </ButtonWithLoader>
               </form>
             </CardContent>
           </Card>
 
+          {/* Result */}
           {result && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Order {result.orderNumber}</CardTitle>
-                <CardDescription>
-                  Placed {new Date(result.createdAt).toLocaleString()}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Status timeline */}
-                {result.status !== 'cancelled' && (
-                  <div className="flex items-center justify-between relative">
-                    <div className="absolute top-5 left-0 right-0 h-0.5 bg-border -z-0" />
-                    {STATUS_STEPS.map((step, i) => {
-                      const done = i <= currentStepIndex
-                      const Icon = step.icon
-                      return (
-                        <div key={step.key} className="flex flex-col items-center relative z-10 bg-background">
-                          <div
-                            className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                              done ? 'bg-green-600 text-white' : 'bg-muted text-muted-foreground'
-                            }`}
-                          >
-                            <Icon className="w-5 h-5" />
-                          </div>
-                          <span
-                            className={`text-xs mt-1 font-medium ${
-                              done ? 'text-green-700' : 'text-muted-foreground'
-                            }`}
-                          >
-                            {step.label}
-                          </span>
-                        </div>
-                      )
-                    })}
+            <div className="mt-8 space-y-6">
+              {/* Order header */}
+              <Card className="border-border shadow-sm overflow-hidden">
+                <CardHeader className="pb-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div>
+                      <CardTitle className="text-lg font-semibold text-foreground">
+                        Order #{result.orderNumber}
+                      </CardTitle>
+                      <CardDescription className="mt-1">
+                        Placed {new Date(result.createdAt).toLocaleDateString(undefined, {
+                          dateStyle: 'medium',
+                          timeStyle: 'short',
+                        })}
+                      </CardDescription>
+                    </div>
+                    <StatusBadge status={result.status} />
                   </div>
-                )}
+                </CardHeader>
+              </Card>
 
-                {result.status === 'cancelled' && (
-                  <div className="flex items-center gap-2 py-3 px-4 bg-red-50 text-red-700 rounded-lg">
-                    <AlertCircle className="w-5 h-5 shrink-0" />
-                    <span className="font-medium">This order has been cancelled.</span>
-                  </div>
-                )}
+              {/* Status timeline */}
+              {result.status !== 'cancelled' && (
+                <Card className="border-border shadow-sm overflow-hidden">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base font-medium">Order status</CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <div className="relative">
+                      <div className="absolute left-4 top-6 bottom-6 w-px bg-border" />
+                      <ul className="space-y-0">
+                        {STATUS_STEPS.map((step, i) => {
+                          const done = i <= currentStepIndex
+                          const current = i === currentStepIndex
+                          const Icon = step.icon
+                          return (
+                            <li key={step.key} className="relative flex gap-4 pb-6 last:pb-0">
+                              <div
+                                className={cn(
+                                  'relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 transition-colors',
+                                  done
+                                    ? 'border-primary bg-primary text-primary-foreground'
+                                    : 'border-border bg-background',
+                                  current && 'ring-2 ring-primary/20'
+                                )}
+                              >
+                                <Icon className="h-4 w-4" />
+                              </div>
+                              <div className="min-w-0 pt-0.5">
+                                <p
+                                  className={cn(
+                                    'text-sm font-medium',
+                                    done ? 'text-foreground' : 'text-muted-foreground'
+                                  )}
+                                >
+                                  {step.label}
+                                </p>
+                              </div>
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
-                {/* Items */}
-                <div>
-                  <h4 className="font-semibold text-foreground mb-2">Items</h4>
-                  <ul className="space-y-2">
+              {result.status === 'cancelled' && (
+                <Card className="border-destructive/30 bg-destructive/5 overflow-hidden">
+                  <CardContent className="flex items-center gap-3 py-4">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-destructive/10">
+                      <AlertCircle className="h-5 w-5 text-destructive" />
+                    </div>
+                    <p className="font-medium text-destructive">This order has been cancelled.</p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Items & totals */}
+              <Card className="border-border shadow-sm overflow-hidden">
+                <CardHeader className="py-4">
+                  <CardTitle className="text-base font-medium">Order details</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-0 space-y-0">
+                  <div className="divide-y divide-border">
                     {result.items.map((item, idx) => (
-                      <li
+                      <div
                         key={idx}
-                        className="flex justify-between text-sm py-2 border-b border-gray-100 last:border-0"
+                        className="flex items-center justify-between py-4 first:pt-0"
                       >
-                        <span>
-                          {item.productName} × {item.quantity}
-                        </span>
-                        <span>${item.subtotal.toFixed(2)}</span>
-                      </li>
+                        <div className="min-w-0 pr-4">
+                          <p className="font-medium text-foreground text-sm truncate">
+                            {item.productName}
+                          </p>
+                          <p className="text-muted-foreground text-xs mt-0.5">
+                            Qty: {item.quantity}
+                          </p>
+                        </div>
+                        <p className="text-sm font-medium text-foreground shrink-0">
+                          ${item.subtotal.toFixed(2)}
+                        </p>
+                      </div>
                     ))}
-                  </ul>
-                </div>
-
-                {/* Totals */}
-                <div className="border-t pt-4 space-y-1 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Subtotal</span>
-                    <span>${result.subtotal.toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Shipping</span>
-                    <span>${result.shippingCost.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Tax</span>
-                    <span>${result.tax.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between font-semibold text-base pt-2">
-                    <span>Total</span>
-                    <span>${result.total.toFixed(2)}</span>
-                  </div>
-                </div>
-
-                {/* Shipping address */}
-                {result.shipping && (
-                  <div className="flex gap-2">
-                    <MapPin className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" />
-                    <div className="text-sm text-muted-foreground">
-                      <p className="font-medium text-foreground">Shipping address</p>
-                      <p>
-                        {result.shipping.address}, {result.shipping.city}
-                        {result.shipping.state ? `, ${result.shipping.state}` : ''}{' '}
-                        {result.shipping.zipCode}
-                        {result.shipping.country ? `, ${result.shipping.country}` : ''}
-                      </p>
+                  <div className="mt-4 pt-4 border-t border-border space-y-2">
+                    <div className="flex justify-between text-sm text-muted-foreground">
+                      <span>Subtotal</span>
+                      <span>${result.subtotal.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm text-muted-foreground">
+                      <span>Shipping</span>
+                      <span>${result.shippingCost.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm text-muted-foreground">
+                      <span>Tax</span>
+                      <span>${result.tax.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-base font-semibold text-foreground pt-2">
+                      <span>Total</span>
+                      <span>${result.total.toFixed(2)}</span>
                     </div>
                   </div>
-                )}
+                </CardContent>
+              </Card>
 
-                <Link href={getTenantLink(tenant, '/')}>
-                  <Button variant="outline" className="w-full">
-                    Back to shop
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
+              {/* Shipping */}
+              {result.shipping && (
+                <Card className="border-border shadow-sm overflow-hidden">
+                  <CardHeader className="py-4">
+                    <CardTitle className="text-base font-medium flex items-center gap-2">
+                      <MapPin className="h-4 w-4 text-muted-foreground" />
+                      Shipping address
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      {result.shipping.address}
+                      <br />
+                      {result.shipping.city}
+                      {result.shipping.state ? `, ${result.shipping.state}` : ''}{' '}
+                      {result.shipping.zipCode}
+                      {result.shipping.country && (
+                        <>
+                          <br />
+                          {result.shipping.country}
+                        </>
+                      )}
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+
+              <Link href={getTenantLink(tenant, '/')} className="block">
+                <Button variant="outline" className="w-full h-11" size="lg">
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Back to shop
+                </Button>
+              </Link>
+            </div>
           )}
         </div>
       </section>
 
-      <footer className="bg-card border-t border-border text-card-foreground py-8 shrink-0">
-        <div className="container mx-auto px-4 text-center">
+      <footer className="border-t border-border bg-card text-muted-foreground py-6 mt-auto">
+        <div className="container mx-auto px-4 text-center text-sm">
           <p>&copy; {new Date().getFullYear()} {tenant.config.siteName}. All rights reserved.</p>
         </div>
       </footer>
