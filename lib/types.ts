@@ -5,6 +5,11 @@ export interface Tenant {
   name: string
   subdomain: string
   template: TemplateType
+  /**
+   * When true, this tenant acts as a reusable template
+   * that can be cloned/used when creating new sites.
+   */
+  isTemplate?: boolean
   config: TenantConfig
   createdAt: string
   updatedAt: string
@@ -22,6 +27,7 @@ export interface TenantConfig {
   // E-commerce specific
   products?: Product[]
   categories?: Category[]
+  collections?: Collection[]
   sliders?: Slider[]
   banners?: Banner[]
   sliderConfig?: {
@@ -122,6 +128,17 @@ export interface Banner {
   updatedAt?: string
 }
 
+/** Home page collection: title, description, and product IDs to display. */
+export interface Collection {
+  id: string
+  title: string
+  description?: string
+  productIds: string[]
+  order?: number
+  createdAt?: string
+  updatedAt?: string
+}
+
 export interface Order {
   id: string
   tenantId: string
@@ -186,5 +203,32 @@ export interface Project {
   image: string
   link?: string
   technologies?: string[]
+}
+
+// Auth / storage (users, admins, sessions)
+export interface User {
+  id: string
+  email: string
+  name: string
+  password: string
+  tenantId: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface Admin {
+  id: string
+  email: string
+  name: string
+  password: string
+  role: 'super_admin' | 'admin'
+  createdAt: string
+  updatedAt: string
+}
+
+export interface SessionData {
+  userId: string
+  role: 'admin' | 'user'
+  expires: number
 }
 

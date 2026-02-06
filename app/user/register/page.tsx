@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
+import { ButtonWithLoader } from '@/components/ui/button-with-loader'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -142,9 +143,9 @@ export default function UserRegisterPage() {
                 {error}
               </div>
             )}
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Creating Account...' : 'Create Account'}
-            </Button>
+            <ButtonWithLoader type="submit" className="w-full" loading={loading} loadingLabel="Creating Account...">
+              Create Account
+            </ButtonWithLoader>
           </form>
           <div className="mt-4 text-center">
             <p className="text-sm text-gray-600">

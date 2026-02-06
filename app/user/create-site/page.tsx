@@ -3,25 +3,21 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
+import { ButtonWithLoader } from '@/components/ui/button-with-loader'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
-import { getAllTemplates } from '@/templates'
-
-// Ensure templates are registered
-import '@/templates'
+import { ArrowLeft, Loader2 } from 'lucide-react'
 
 export default function CreateSitePage() {
   const router = useRouter()
-  const templates = getAllTemplates()
   const [authenticated, setAuthenticated] = useState(false)
   const [loading, setLoading] = useState(true)
   const [formData, setFormData] = useState({
     name: '',
     subdomain: '',
-    template: templates[0]?.id || 'ecommerce',
+    template: 'ecommerce',
     siteName: '',
     siteDescription: '',
   })
@@ -118,7 +114,12 @@ export default function CreateSitePage() {
   }
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>
+    return (
+      <div className="min-h-screen flex items-center justify-center gap-2 text-muted-foreground">
+        <Loader2 className="h-8 w-8 shrink-0 animate-spin" aria-hidden />
+        <span>Loading...</span>
+      </div>
+    )
   }
 
   if (!authenticated) {
@@ -179,21 +180,18 @@ export default function CreateSitePage() {
                   <select
                     id="template"
                     value={formData.template}
-                    onChange={(e) => setFormData({ ...formData, template: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, template: e.target.value as 'ecommerce' | 'portfolio' })}
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                     required
                   >
-                    {templates.map((template) => (
-                      <option key={template.id} value={template.id}>
-                        {template.name}
-                      </option>
-                    ))}
+                    <option value="ecommerce">E-Commerce</option>
+                    <option value="portfolio">Portfolio</option>
                   </select>
-                  {templates.find(t => t.id === formData.template) && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      {templates.find(t => t.id === formData.template)?.description}
-                    </p>
-                  )}
+                  <p className="text-xs text-gray-500 mt-1">
+                    {formData.template === 'ecommerce'
+                      ? 'Online store with products, cart, and checkout.'
+                      : 'Portfolio layout for showcasing projects.'}
+                  </p>
                 </div>
 
                 <div>
@@ -229,9 +227,9 @@ export default function CreateSitePage() {
                   </div>
                 )}
 
-                <Button type="submit" className="w-full" size="lg" disabled={submitting}>
-                  {submitting ? 'Creating...' : 'Create Site'}
-                </Button>
+                <ButtonWithLoader type="submit" className="w-full" size="lg" loading={submitting} loadingLabel="Creating...">
+                  Create Site
+                </ButtonWithLoader>
               </form>
             </CardContent>
           </Card>

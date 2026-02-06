@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import Link from 'next/link'
+import { Loader2 } from 'lucide-react'
 import { User, Tenant } from '@/lib/types'
 
 export default function AdminDashboard() {
@@ -55,7 +56,12 @@ export default function AdminDashboard() {
   }
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>
+    return (
+      <div className="min-h-screen flex items-center justify-center gap-2 text-muted-foreground">
+        <Loader2 className="h-8 w-8 shrink-0 animate-spin" aria-hidden />
+        <span>Loading...</span>
+      </div>
+    )
   }
 
   return (

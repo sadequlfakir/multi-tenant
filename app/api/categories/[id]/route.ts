@@ -2,22 +2,22 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getTenantBySubdomain, updateTenantConfig } from '@/lib/tenant-store'
 import { getAuthenticatedUser } from '@/lib/auth'
 import { readUsers } from '@/lib/storage'
+import { getTenantSubdomainFromRequest } from '@/lib/api-tenant'
 import { Category } from '@/lib/types'
 import { isCloudinaryUrl, deleteByUrl } from '@/lib/cloudinary'
 
-// GET - Get a single category
+// GET - Tenant from Host or query
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params
-    const searchParams = request.nextUrl.searchParams
-    const subdomain = searchParams.get('subdomain')
+    const subdomain = getTenantSubdomainFromRequest(request)
 
     if (!subdomain) {
       return NextResponse.json(
-        { error: 'Subdomain is required' },
+        { error: 'Tenant is required (request from tenant host or subdomain)' },
         { status: 400 }
       )
     }
@@ -68,11 +68,12 @@ export async function PUT(
     }
 
     const body = await request.json()
-    const { subdomain, ...categoryData } = body
+    const { subdomain: bodySubdomain, ...categoryData } = body
+    const subdomain = getTenantSubdomainFromRequest(request) ?? bodySubdomain
 
     if (!subdomain) {
       return NextResponse.json(
-        { error: 'Subdomain is required' },
+        { error: 'Tenant is required (Host or subdomain in body)' },
         { status: 400 }
       )
     }
@@ -177,12 +178,11 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const searchParams = request.nextUrl.searchParams
-    const subdomain = searchParams.get('subdomain')
+    const subdomain = getTenantSubdomainFromRequest(request)
 
     if (!subdomain) {
       return NextResponse.json(
-        { error: 'Subdomain is required' },
+        { error: 'Tenant is required (Host or subdomain in query)' },
         { status: 400 }
       )
     }

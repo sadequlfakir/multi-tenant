@@ -1,22 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantBySubdomain } from '@/lib/tenant-store'
+import { getTenantSubdomainFromRequest } from '@/lib/api-tenant'
 import { getAuthenticatedUser } from '@/lib/auth'
 import { readUsers, readOrders, writeOrders } from '@/lib/storage'
 import { Order } from '@/lib/types'
 
-// GET - Get a single order
+// GET - Tenant from Host or query
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params
-    const searchParams = request.nextUrl.searchParams
-    const subdomain = searchParams.get('subdomain')
+    const subdomain = getTenantSubdomainFromRequest(request)
 
     if (!subdomain) {
       return NextResponse.json(
-        { error: 'Subdomain is required' },
+        { error: 'Tenant is required (request from tenant host or subdomain)' },
         { status: 400 }
       )
     }
@@ -67,11 +67,12 @@ export async function PUT(
     }
 
     const body = await request.json()
-    const { subdomain, status } = body
+    const { subdomain: bodySubdomain, status } = body
+    const subdomain = getTenantSubdomainFromRequest(request) ?? bodySubdomain
 
     if (!subdomain) {
       return NextResponse.json(
-        { error: 'Subdomain is required' },
+        { error: 'Tenant is required (Host or subdomain in body)' },
         { status: 400 }
       )
     }

@@ -2,17 +2,19 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getTenantBySubdomain, updateTenantConfig } from '@/lib/tenant-store'
 import { getAuthenticatedUser } from '@/lib/auth'
 import { readUsers } from '@/lib/storage'
+import { getTenantSubdomainFromRequest } from '@/lib/api-tenant'
 import { Slider } from '@/lib/types'
 
-// GET - List all sliders for a tenant
+// GET - Tenant from Host or query. Storefront gets only active; dashboard gets all.
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams
-    const subdomain = searchParams.get('subdomain')
+    const subdomain = getTenantSubdomainFromRequest(request)
+    const token = request.headers.get('authorization')?.replace('Bearer ', '')
+    const isDashboard = Boolean(token && (await getAuthenticatedUser(token)))
 
     if (!subdomain) {
       return NextResponse.json(
-        { error: 'Subdomain is required' },
+        { error: 'Tenant is required (request from tenant host or subdomain)' },
         { status: 400 }
       )
     }
@@ -25,11 +27,12 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const sliders = tenant.config.sliders || []
-    // Sort by order
-    const sortedSliders = sliders.sort((a, b) => (a.order || 0) - (b.order || 0))
-
-    return NextResponse.json(sortedSliders)
+    let sliders = tenant.config.sliders || []
+    if (!isDashboard) {
+      sliders = sliders.filter((s) => (s.status ?? 'active') === 'active')
+    }
+    sliders = sliders.slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    return NextResponse.json(sliders)
   } catch (error) {
     return NextResponse.json(
       { error: 'Failed to fetch sliders' },
@@ -53,11 +56,12 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { subdomain, ...sliderData } = body
+    const { subdomain: bodySubdomain, ...sliderData } = body
+    const subdomain = getTenantSubdomainFromRequest(request) ?? bodySubdomain
 
     if (!subdomain) {
       return NextResponse.json(
-        { error: 'Subdomain is required' },
+        { error: 'Tenant is required (set via Host or subdomain in body)' },
         { status: 400 }
       )
     }

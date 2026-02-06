@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantBySubdomain } from '@/lib/tenant-store'
+import { getTenantSubdomainFromRequest } from '@/lib/api-tenant'
 import { getAuthenticatedUser } from '@/lib/auth'
 import { readUsers, readCustomers, writeCustomers } from '@/lib/storage'
 import { Customer } from '@/lib/types'
 
-// GET - List all customers for a tenant (auth required, tenant owner only)
+// GET - Tenant from Host or query
 export async function GET(request: NextRequest) {
   try {
     const token = request.headers.get('authorization')?.replace('Bearer ', '')
@@ -17,12 +18,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const searchParams = request.nextUrl.searchParams
-    const subdomain = searchParams.get('subdomain')
+    const subdomain = getTenantSubdomainFromRequest(request)
 
     if (!subdomain) {
       return NextResponse.json(
-        { error: 'Subdomain is required' },
+        { error: 'Tenant is required (request from tenant host or subdomain)' },
         { status: 400 }
       )
     }
@@ -71,11 +71,12 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { subdomain, name, email, phone } = body
+    const { subdomain: bodySubdomain, name, email, phone } = body
+    const subdomain = getTenantSubdomainFromRequest(request) ?? bodySubdomain
 
     if (!subdomain) {
       return NextResponse.json(
-        { error: 'Subdomain is required' },
+        { error: 'Tenant is required (Host or subdomain in body)' },
         { status: 400 }
       )
     }

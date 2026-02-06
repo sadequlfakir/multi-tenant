@@ -2,17 +2,19 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getTenantBySubdomain, updateTenantConfig } from '@/lib/tenant-store'
 import { getAuthenticatedUser } from '@/lib/auth'
 import { readUsers } from '@/lib/storage'
+import { getTenantSubdomainFromRequest } from '@/lib/api-tenant'
 import { Banner } from '@/lib/types'
 
-// GET - List all banners for a tenant
+// GET - Tenant from Host or query. Storefront gets only active; dashboard gets all.
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams
-    const subdomain = searchParams.get('subdomain')
+    const subdomain = getTenantSubdomainFromRequest(request)
+    const token = request.headers.get('authorization')?.replace('Bearer ', '')
+    const isDashboard = Boolean(token && (await getAuthenticatedUser(token)))
 
     if (!subdomain) {
       return NextResponse.json(
-        { error: 'Subdomain is required' },
+        { error: 'Tenant is required (request from tenant host or subdomain)' },
         { status: 400 }
       )
     }
@@ -25,7 +27,11 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    return NextResponse.json(tenant.config.banners || [])
+    let list = tenant.config.banners || []
+    if (!isDashboard) {
+      list = list.filter((b) => (b.status ?? 'active') === 'active')
+    }
+    return NextResponse.json(list)
   } catch (error) {
     return NextResponse.json(
       { error: 'Failed to fetch banners' },
@@ -49,11 +55,12 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { subdomain, ...bannerData } = body
+    const { subdomain: bodySubdomain, ...bannerData } = body
+    const subdomain = getTenantSubdomainFromRequest(request) ?? bodySubdomain
 
     if (!subdomain) {
       return NextResponse.json(
-        { error: 'Subdomain is required' },
+        { error: 'Tenant is required (set via Host or subdomain in body)' },
         { status: 400 }
       )
     }

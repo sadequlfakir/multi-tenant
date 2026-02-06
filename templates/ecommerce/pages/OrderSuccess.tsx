@@ -22,7 +22,7 @@ export default function OrderSuccess({ tenant }: OrderSuccessProps) {
 
   useEffect(() => {
     if (orderId) {
-      fetch(`/api/orders/${orderId}?subdomain=${tenant.subdomain}`)
+      fetch(`/api/orders/${orderId}`)
         .then(res => res.json())
         .then(data => {
           setOrder(data)

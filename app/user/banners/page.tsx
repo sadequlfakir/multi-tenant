@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
+import { ButtonWithLoader } from '@/components/ui/button-with-loader'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -65,6 +66,8 @@ export default function BannersManagementPage() {
   const [sliders, setSliders] = useState<Slider[]>([])
   const [banners, setBanners] = useState<Banner[]>([])
   const [loading, setLoading] = useState(true)
+  const [savingSlider, setSavingSlider] = useState(false)
+  const [savingBanner, setSavingBanner] = useState(false)
   const [sliderDialogOpen, setSliderDialogOpen] = useState(false)
   const [bannerDialogOpen, setBannerDialogOpen] = useState(false)
   const [editingSlider, setEditingSlider] = useState<Slider | null>(null)
@@ -73,6 +76,8 @@ export default function BannersManagementPage() {
   const [bannerImageFile, setBannerImageFile] = useState<File | null>(null)
   const [sliderForm, setSliderForm] = useState<SliderFormData>(defaultSliderForm)
   const [bannerForm, setBannerForm] = useState<BannerFormData>(defaultBannerForm)
+  const [sliderConfig, setSliderConfig] = useState<{ autoPlay: boolean; interval: number }>({ autoPlay: true, interval: 5000 })
+  const [savingConfig, setSavingConfig] = useState(false)
 
   useEffect(() => {
     const token = localStorage.getItem('userToken')
@@ -106,9 +111,10 @@ export default function BannersManagementPage() {
         setTenant(userTenant)
 
         if (userTenant.template === 'ecommerce') {
-          const [slidersRes, bannersRes] = await Promise.all([
+          const [slidersRes, bannersRes, configRes] = await Promise.all([
             fetch(`/api/sliders?subdomain=${userTenant.subdomain}`),
             fetch(`/api/banners?subdomain=${userTenant.subdomain}`),
+            fetch(`/api/slider-config?subdomain=${userTenant.subdomain}`),
           ])
           if (slidersRes.ok) {
             const slidersData = await slidersRes.json()
@@ -117,6 +123,13 @@ export default function BannersManagementPage() {
           if (bannersRes.ok) {
             const bannersData = await bannersRes.json()
             setBanners(bannersData)
+          }
+          if (configRes.ok) {
+            const config = await configRes.json()
+            setSliderConfig({
+              autoPlay: config.autoPlay !== false,
+              interval: typeof config.interval === 'number' ? config.interval : 5000,
+            })
           }
         } else {
           router.push('/user/dashboard')
@@ -175,6 +188,7 @@ export default function BannersManagementPage() {
   const handleSliderSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!tenant) return
+    setSavingSlider(true)
 
     const token = localStorage.getItem('userToken')
     if (!token) return
@@ -229,6 +243,8 @@ export default function BannersManagementPage() {
       loadData(token)
     } catch (error: unknown) {
       alert(error instanceof Error ? error.message : 'Failed to save slider')
+    } finally {
+      setSavingSlider(false)
     }
   }
 
@@ -239,6 +255,7 @@ export default function BannersManagementPage() {
     const token = localStorage.getItem('userToken')
     if (!token) return
 
+    setSavingBanner(true)
     try {
       let imageUrl = bannerForm.image.trim()
       if (bannerImageFile) {
@@ -293,6 +310,8 @@ export default function BannersManagementPage() {
       loadData(token)
     } catch (error: unknown) {
       alert(error instanceof Error ? error.message : 'Failed to save banner')
+    } finally {
+      setSavingBanner(false)
     }
   }
 
@@ -363,7 +382,78 @@ export default function BannersManagementPage() {
             <TabsTrigger value="banners">Banners ({banners.length})</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="sliders" className="space-y-4">
+          <TabsContent value="sliders" className="space-y-6">
+            {/* Slider settings: auto-play and interval */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Slider settings</CardTitle>
+                <CardDescription>
+                  Auto-play and interval for the homepage hero slider.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex flex-wrap items-center gap-6">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={sliderConfig.autoPlay}
+                      onChange={(e) => setSliderConfig((c) => ({ ...c, autoPlay: e.target.checked }))}
+                      className="rounded border-input"
+                    />
+                    <span className="text-sm font-medium">Auto-play</span>
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="slider-interval" className="text-sm font-medium whitespace-nowrap">
+                      Interval (seconds)
+                    </Label>
+                    <Input
+                      id="slider-interval"
+                      type="number"
+                      min={1}
+                      max={60}
+                      value={sliderConfig.interval / 1000}
+                      onChange={(e) => {
+                        const sec = parseInt(e.target.value, 10)
+                        if (!isNaN(sec) && sec >= 1) setSliderConfig((c) => ({ ...c, interval: sec * 1000 }))
+                      }}
+                      className="w-24"
+                    />
+                  </div>
+                  <ButtonWithLoader
+                    loading={savingConfig}
+                    loadingLabel="Saving..."
+                    onClick={async () => {
+                      if (!tenant) return
+                      const token = localStorage.getItem('userToken')
+                      if (!token) return
+                      setSavingConfig(true)
+                      try {
+                        const res = await fetch('/api/slider-config', {
+                          method: 'PUT',
+                          headers: {
+                            'Content-Type': 'application/json',
+                            Authorization: `Bearer ${token}`,
+                          },
+                          body: JSON.stringify({
+                            subdomain: tenant.subdomain,
+                            autoPlay: sliderConfig.autoPlay,
+                            interval: sliderConfig.interval,
+                          }),
+                        })
+                        if (!res.ok) throw new Error((await res.json()).error || 'Failed to save')
+                      } catch (err) {
+                        alert(err instanceof Error ? err.message : 'Failed to save slider settings')
+                      } finally {
+                        setSavingConfig(false)
+                      }
+                    }}
+                  >
+                    Save settings
+                  </ButtonWithLoader>
+                </div>
+              </CardContent>
+            </Card>
+
             <div className="flex justify-end">
               <Button
                 onClick={() => openSliderDialog()}
@@ -629,12 +719,14 @@ export default function BannersManagementPage() {
               >
                 Cancel
               </Button>
-              <Button
+              <ButtonWithLoader
                 type="submit"
+                loading={savingSlider}
+                loadingLabel={editingSlider ? 'Updating...' : 'Creating...'}
                 className="bg-gradient-to-r from-blue-500 to-indigo-600"
               >
                 {editingSlider ? 'Update' : 'Create'}
-              </Button>
+              </ButtonWithLoader>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -755,12 +847,14 @@ export default function BannersManagementPage() {
               >
                 Cancel
               </Button>
-              <Button
+              <ButtonWithLoader
                 type="submit"
+                loading={savingBanner}
+                loadingLabel={editingBanner ? 'Updating...' : 'Creating...'}
                 className="bg-gradient-to-r from-blue-500 to-indigo-600"
               >
                 {editingBanner ? 'Update' : 'Create'}
-              </Button>
+              </ButtonWithLoader>
             </DialogFooter>
           </form>
         </DialogContent>

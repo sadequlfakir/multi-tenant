@@ -1,19 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantBySubdomain } from '@/lib/tenant-store'
+import { getTenantSubdomainFromRequest } from '@/lib/api-tenant'
 import { readOrders } from '@/lib/storage'
 
-// Public API: track order by order number + email (no auth)
-// Returns limited order details only if email matches the order's customer email.
+// Public API: track order by order number + email (no auth). Tenant from Host or query.
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams
-    const subdomain = searchParams.get('subdomain')
-    const orderNumber = searchParams.get('orderNumber')
-    const email = searchParams.get('email')
+    const subdomain = getTenantSubdomainFromRequest(request)
+    const orderNumber = request.nextUrl.searchParams.get('orderNumber')
+    const email = request.nextUrl.searchParams.get('email')
 
     if (!subdomain || !orderNumber || !email) {
       return NextResponse.json(
-        { error: 'Subdomain, order number, and email are required' },
+        { error: 'Store (tenant), order number, and email are required' },
         { status: 400 }
       )
     }

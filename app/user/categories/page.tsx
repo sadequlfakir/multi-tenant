@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
+import { ButtonWithLoader } from '@/components/ui/button-with-loader'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -23,6 +24,8 @@ export default function CategoriesManagementPage() {
   const [tenant, setTenant] = useState<Tenant | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
   const [imageFile, setImageFile] = useState<File | null>(null)
@@ -146,6 +149,7 @@ export default function CategoriesManagementPage() {
         status: formData.status,
       }
 
+      setSaving(true)
       let response
       if (editingCategory) {
         response = await fetch(`/api/categories/${editingCategory.id}`, {
@@ -177,6 +181,8 @@ export default function CategoriesManagementPage() {
       loadData(token)
     } catch (error: unknown) {
       alert(error instanceof Error ? error.message : 'Failed to save category')
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -204,6 +210,8 @@ export default function CategoriesManagementPage() {
       loadData(token)
     } catch (error: unknown) {
       alert(error instanceof Error ? error.message : 'Failed to delete category')
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -300,14 +308,15 @@ export default function CategoriesManagementPage() {
                       <Edit className="w-4 h-4 mr-2" />
                       Edit
                     </Button>
-                    <Button
+                    <ButtonWithLoader
                       variant="outline"
                       size="sm"
                       className="text-red-600 hover:text-red-700"
+                      loading={deletingId === category.id}
                       onClick={() => handleDelete(category.id)}
                     >
                       <Trash2 className="w-4 h-4" />
-                    </Button>
+                    </ButtonWithLoader>
                   </div>
                 </CardContent>
               </Card>
@@ -440,9 +449,9 @@ export default function CategoriesManagementPage() {
               <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" className="bg-gradient-to-r from-blue-500 to-indigo-600">
+              <ButtonWithLoader type="submit" loading={saving} loadingLabel={editingCategory ? 'Updating...' : 'Creating...'} className="bg-gradient-to-r from-blue-500 to-indigo-600">
                 {editingCategory ? 'Update Category' : 'Create Category'}
-              </Button>
+              </ButtonWithLoader>
             </DialogFooter>
           </form>
         </DialogContent>

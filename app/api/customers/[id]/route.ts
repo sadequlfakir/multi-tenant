@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantBySubdomain } from '@/lib/tenant-store'
+import { getTenantSubdomainFromRequest } from '@/lib/api-tenant'
 import { getAuthenticatedUser } from '@/lib/auth'
 import { readUsers, readCustomers, writeCustomers } from '@/lib/storage'
 import { Customer, Tenant } from '@/lib/types'
@@ -10,7 +11,7 @@ async function ensureTenantAccess(
 ): Promise<{ tenant: NonNullable<Tenant>; user: { id: string } } | NextResponse> {
   if (!subdomain) {
     return NextResponse.json(
-      { error: 'Subdomain is required' },
+      { error: 'Tenant is required (request from tenant host or subdomain)' },
       { status: 400 }
     )
   }
@@ -46,7 +47,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params
-    const subdomain = request.nextUrl.searchParams.get('subdomain')
+    const subdomain = getTenantSubdomainFromRequest(request)
     const access = await ensureTenantAccess(request, subdomain)
     if (access instanceof NextResponse) return access
     const { tenant } = access
@@ -78,7 +79,8 @@ export async function PUT(
   try {
     const { id } = await params
     const body = await request.json()
-    const { subdomain, name, email, phone } = body
+    const { subdomain: bodySubdomain, name, email, phone } = body
+    const subdomain = getTenantSubdomainFromRequest(request) ?? bodySubdomain
     const access = await ensureTenantAccess(request, subdomain ?? null)
     if (access instanceof NextResponse) return access
     const { tenant } = access
@@ -133,7 +135,7 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params
-    const subdomain = request.nextUrl.searchParams.get('subdomain')
+    const subdomain = getTenantSubdomainFromRequest(request)
     const access = await ensureTenantAccess(request, subdomain)
     if (access instanceof NextResponse) return access
     const { tenant } = access

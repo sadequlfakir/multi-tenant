@@ -9,6 +9,7 @@ import {
   Settings, 
   Package, 
   FolderKanban, 
+  LayoutGrid,
   Globe, 
   ExternalLink,
   Menu,
@@ -49,6 +50,11 @@ export function Sidebar({ tenant, onLogout }: SidebarProps) {
             name: 'Categories',
             href: '/user/categories',
             icon: FolderKanban,
+          },
+          {
+            name: 'Home Collections',
+            href: '/user/collections',
+            icon: LayoutGrid,
           },
           {
             name: 'Banners & Sliders',

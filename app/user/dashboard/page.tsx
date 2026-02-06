@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   Package,
   FolderKanban,
+  LayoutGrid,
   Activity,
   ShoppingBag,
   Users,
@@ -474,6 +475,12 @@ export default function UserDashboard() {
                             <Button variant="outline" className="w-full justify-start" size="lg">
                               <FolderKanban className="w-5 h-5 mr-2" />
                               Categories
+                            </Button>
+                          </Link>
+                          <Link href="/user/collections">
+                            <Button variant="outline" className="w-full justify-start" size="lg">
+                              <LayoutGrid className="w-5 h-5 mr-2" />
+                              Home Collections
                             </Button>
                           </Link>
                           <Link href="/user/banners">

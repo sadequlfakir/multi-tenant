@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantBySubdomain, updateTenantConfig } from '@/lib/tenant-store'
+import { getTenantSubdomainFromRequest } from '@/lib/api-tenant'
 import { getAuthenticatedUser } from '@/lib/auth'
 import { readUsers } from '@/lib/storage'
 
-// GET - Get slider config for a tenant
+// GET - Tenant from Host or query
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams
-    const subdomain = searchParams.get('subdomain')
+    const subdomain = getTenantSubdomainFromRequest(request)
 
     if (!subdomain) {
       return NextResponse.json(
-        { error: 'Subdomain is required' },
+        { error: 'Tenant is required (request from tenant host or subdomain)' },
         { status: 400 }
       )
     }
@@ -48,11 +48,12 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { subdomain, ...configData } = body
+    const { subdomain: bodySubdomain, ...configData } = body
+    const subdomain = getTenantSubdomainFromRequest(request) ?? bodySubdomain
 
     if (!subdomain) {
       return NextResponse.json(
-        { error: 'Subdomain is required' },
+        { error: 'Tenant is required (Host or subdomain in body)' },
         { status: 400 }
       )
     }

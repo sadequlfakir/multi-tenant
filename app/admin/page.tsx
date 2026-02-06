@@ -3,27 +3,28 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
+import { ButtonWithLoader } from '@/components/ui/button-with-loader'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
-import { getAllTemplates } from '@/templates'
-
-// Ensure templates are registered
-import '@/templates'
+import { ArrowLeft, Loader2 } from 'lucide-react'
+import type { Tenant } from '@/lib/types'
 
 export default function AdminPage() {
   const router = useRouter()
-  const templates = getAllTemplates()
   const [authenticated, setAuthenticated] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [tenants, setTenants] = useState<Tenant[]>([])
+  const [templates, setTemplates] = useState<Tenant[]>([])
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     name: '',
     subdomain: '',
-    template: templates[0]?.id || 'ecommerce',
+    template: 'ecommerce',
     siteName: '',
     siteDescription: '',
+    isTemplate: false,
   })
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -43,6 +44,24 @@ export default function AdminPage() {
       .then(res => {
         if (res.ok) {
           setAuthenticated(true)
+          setLoadError(null)
+          // Load all tenants from Supabase
+          fetch('/api/tenants')
+            .then(async (r) => {
+              const data = await r.json().catch(() => ({}))
+              if (!r.ok) throw new Error((data && data.error) || 'Failed to load tenants')
+              return data
+            })
+            .then((data) => setTenants(Array.isArray(data) ? data : []))
+            .catch((err) => {
+              setTenants([])
+              setLoadError(err.message || 'Could not load tenants')
+            })
+          // Load template tenants (isTemplate=true)
+          fetch('/api/tenants?isTemplate=true')
+            .then(r => r.ok ? r.json() : [])
+            .then((data) => setTemplates(Array.isArray(data) ? data : []))
+            .catch(() => setTemplates([]))
         } else {
           router.push('/user/login')
         }
@@ -78,6 +97,7 @@ export default function AdminPage() {
             siteName: formData.siteName || formData.name,
             siteDescription: formData.siteDescription,
           },
+          isTemplate: formData.isTemplate,
         }),
       })
 
@@ -88,6 +108,19 @@ export default function AdminPage() {
 
       const tenant = await response.json()
       setSuccess(`Site created successfully!`)
+      // Refresh lists from Supabase so new tenant/template appears
+      const [allRes, templateRes] = await Promise.all([
+        fetch('/api/tenants'),
+        fetch('/api/tenants?isTemplate=true'),
+      ])
+      if (allRes.ok) {
+        const data = await allRes.json()
+        setTenants(Array.isArray(data) ? data : [])
+      }
+      if (templateRes.ok) {
+        const data = await templateRes.json()
+        setTemplates(Array.isArray(data) ? data : [])
+      }
       setTimeout(() => {
         router.push('/user/dashboard')
       }, 1500)
@@ -99,7 +132,12 @@ export default function AdminPage() {
   }
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>
+    return (
+      <div className="min-h-screen flex items-center justify-center gap-2 text-muted-foreground">
+        <Loader2 className="h-8 w-8 shrink-0 animate-spin" aria-hidden />
+        <span>Loading...</span>
+      </div>
+    )
   }
 
   if (!authenticated) {
@@ -160,21 +198,29 @@ export default function AdminPage() {
                   <select
                     id="template"
                     value={formData.template}
-                    onChange={(e) => setFormData({ ...formData, template: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, template: e.target.value as 'ecommerce' | 'portfolio' })}
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                     required
                   >
-                    {templates.map((template) => (
-                      <option key={template.id} value={template.id}>
-                        {template.name}
-                      </option>
-                    ))}
+                    <option value="ecommerce">E-Commerce</option>
+                    <option value="portfolio">Portfolio</option>
                   </select>
-                  {templates.find(t => t.id === formData.template) && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      {templates.find(t => t.id === formData.template)?.description}
-                    </p>
-                  )}
+                  <p className="text-xs text-gray-500 mt-1">
+                    {formData.template === 'ecommerce'
+                      ? 'Online store with products, cart, and checkout.'
+                      : 'Portfolio layout for showcasing projects.'}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    id="isTemplate"
+                    type="checkbox"
+                    checked={formData.isTemplate}
+                    onChange={(e) => setFormData({ ...formData, isTemplate: e.target.checked })}
+                    className="h-4 w-4 rounded border-input text-blue-600 focus:ring-blue-500"
+                  />
+                  <Label htmlFor="isTemplate">Save as reusable template</Label>
                 </div>
 
                 <div>
@@ -210,24 +256,55 @@ export default function AdminPage() {
                   </div>
                 )}
 
-                <Button type="submit" className="w-full" size="lg" disabled={submitting}>
-                  {submitting ? 'Creating...' : 'Create Site'}
-                </Button>
+                <ButtonWithLoader type="submit" className="w-full" size="lg" loading={submitting} loadingLabel="Creating...">
+                  Create Site
+                </ButtonWithLoader>
               </form>
             </CardContent>
           </Card>
 
-          <div className="mt-8">
-            <h2 className="text-2xl font-bold mb-6">Available Templates</h2>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {templates.map((template) => (
-                <Card key={template.id}>
-                  <CardHeader>
-                    <CardTitle>{template.name}</CardTitle>
-                    <CardDescription>{template.description}</CardDescription>
-                  </CardHeader>
-                </Card>
-              ))}
+          <div className="mt-8 space-y-8">
+            {loadError && (
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-md text-amber-800 text-sm">
+                {loadError} — Check Supabase env (NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY) and run migrations.
+              </div>
+            )}
+            <div>
+              <h2 className="text-2xl font-bold mb-6">All Tenants (from Supabase)</h2>
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {tenants.length === 0 && !loadError && (
+                  <p className="text-gray-500 col-span-full">No tenants yet. Create one above.</p>
+                )}
+                {tenants.map((t) => (
+                  <Card key={t.id}>
+                    <CardHeader>
+                      <CardTitle>{t.config?.siteName || t.name}</CardTitle>
+                      <CardDescription>
+                        {t.subdomain} · {t.template}
+                        {t.isTemplate ? ' · Template' : ''}
+                      </CardDescription>
+                    </CardHeader>
+                  </Card>
+                ))}
+              </div>
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold mb-6">Available Templates</h2>
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {templates.length === 0 && (
+                  <p className="text-gray-500 col-span-full">No templates. Create a site and check &quot;Save as reusable template&quot;.</p>
+                )}
+                {templates.map((template) => (
+                  <Card key={template.id}>
+                    <CardHeader>
+                      <CardTitle>{template.config?.siteName || template.name}</CardTitle>
+                      <CardDescription>
+                        {template.config?.siteDescription || `Template (${template.template})`}
+                      </CardDescription>
+                    </CardHeader>
+                  </Card>
+                ))}
+              </div>
             </div>
           </div>
         </div>

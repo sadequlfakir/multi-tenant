@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
+import { ButtonWithLoader } from '@/components/ui/button-with-loader'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -20,6 +21,8 @@ export default function OrdersManagementPage() {
   const [tenant, setTenant] = useState<Tenant | null>(null)
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
+  const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null)
+  const [updatingStatus, setUpdatingStatus] = useState<Order['status'] | null>(null)
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
 
@@ -77,6 +80,8 @@ export default function OrdersManagementPage() {
     const token = localStorage.getItem('userToken')
     if (!token) return
 
+    setUpdatingOrderId(orderId)
+    setUpdatingStatus(newStatus)
     try {
       const response = await fetch(`/api/orders/${orderId}`, {
         method: 'PUT',
@@ -98,6 +103,9 @@ export default function OrdersManagementPage() {
       loadData(token)
     } catch (error: any) {
       alert(error.message || 'Failed to update order status')
+    } finally {
+      setUpdatingOrderId(null)
+      setUpdatingStatus(null)
     }
   }
 
@@ -215,16 +223,18 @@ export default function OrdersManagementPage() {
                       <p className="font-semibold mb-2">Update Status</p>
                       <div className="flex gap-2 flex-wrap">
                         {['pending', 'processing', 'shipped', 'delivered', 'cancelled'].map((status) => (
-                          <Button
+                          <ButtonWithLoader
                             key={status}
                             variant={order.status === status ? 'default' : 'outline'}
                             size="sm"
                             onClick={() => handleStatusUpdate(order.id, status as Order['status'])}
                             disabled={order.status === status}
+                            loading={updatingOrderId === order.id && updatingStatus === status}
+                            loadingLabel="Updating..."
                             className="text-xs"
                           >
                             {status}
-                          </Button>
+                          </ButtonWithLoader>
                         ))}
                       </div>
                     </div>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -17,15 +17,58 @@ interface ProductDetailProps {
 
 export default function ProductDetail({ tenant, productId }: ProductDetailProps) {
   const [quantity, setQuantity] = useState(1)
+  const [product, setProduct] = useState<Product | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const { addToCart: addToCartContext } = useCart()
-  
-  const product = tenant.config.products?.find(p => p.id === productId)
 
-  if (!product) {
+  useEffect(() => {
+    let cancelled = false
+
+    async function load() {
+      try {
+        setLoading(true)
+        setError(null)
+        const res = await fetch(
+          `/api/products/${productId}`
+        )
+        const data = await res.json()
+        if (!res.ok) {
+          throw new Error(data?.error || 'Failed to load product')
+        }
+        if (!cancelled) {
+          setProduct(data as Product)
+        }
+      } catch (e: unknown) {
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : 'Failed to load product')
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [productId, tenant.subdomain])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center text-muted-foreground">Loading product...</div>
+      </div>
+    )
+  }
+
+  if (error || !product) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4 text-foreground">Product not found</h1>
+          <h1 className="text-2xl font-bold mb-4 text-foreground">
+            {error || 'Product not found'}
+          </h1>
           <Link href={getTenantLink(tenant, '/products')} className="text-primary hover:underline">
             Back to Products
           </Link>

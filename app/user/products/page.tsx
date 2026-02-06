@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
+import { ButtonWithLoader } from '@/components/ui/button-with-loader'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -24,6 +25,8 @@ export default function ProductsManagementPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [imageFile, setImageFile] = useState<File | null>(null)
@@ -144,6 +147,7 @@ export default function ProductsManagementPage() {
     const token = localStorage.getItem('userToken')
     if (!token) return
 
+    setSaving(true)
     try {
       let imageUrl = formData.image.trim()
       if (imageFile) {
@@ -207,6 +211,8 @@ export default function ProductsManagementPage() {
       loadData(token)
     } catch (error: unknown) {
       alert(error instanceof Error ? error.message : 'Failed to save product')
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -217,6 +223,7 @@ export default function ProductsManagementPage() {
     const token = localStorage.getItem('userToken')
     if (!token) return
 
+    setDeletingId(productId)
     try {
       const response = await fetch(
         `/api/products/${productId}?subdomain=${tenant.subdomain}`,
@@ -234,6 +241,8 @@ export default function ProductsManagementPage() {
       loadData(token)
     } catch (error: unknown) {
       alert(error instanceof Error ? error.message : 'Failed to delete product')
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -328,14 +337,15 @@ export default function ProductsManagementPage() {
                       <Edit className="w-4 h-4 mr-2" />
                       Edit
                     </Button>
-                    <Button
+                    <ButtonWithLoader
                       variant="outline"
                       size="sm"
                       className="text-red-600 hover:text-red-700"
+                      loading={deletingId === product.id}
                       onClick={() => handleDelete(product.id)}
                     >
                       <Trash2 className="w-4 h-4" />
-                    </Button>
+                    </ButtonWithLoader>
                   </div>
                 </CardContent>
               </Card>
@@ -521,9 +531,9 @@ export default function ProductsManagementPage() {
               <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" className="bg-gradient-to-r from-blue-500 to-indigo-600">
+              <ButtonWithLoader type="submit" loading={saving} loadingLabel={editingProduct ? 'Updating...' : 'Creating...'} className="bg-gradient-to-r from-blue-500 to-indigo-600">
                 {editingProduct ? 'Update Product' : 'Create Product'}
-              </Button>
+              </ButtonWithLoader>
             </DialogFooter>
           </form>
         </DialogContent>

@@ -1,12 +1,15 @@
 import { Metadata } from 'next'
 import { getTenantBySubdomain } from '@/lib/tenant-store'
 import { findRouteHandler } from '@/lib/template-registry'
-import { cacheTenant } from '@/lib/tenant-cache'
+import { cacheTenant, removeTenantFromCache } from '@/lib/tenant-cache'
 import { notFound } from 'next/navigation'
 import { TenantCartProvider } from '@/components/tenant-cart-provider'
 
 // Ensure templates are registered
 import '@/templates'
+
+// Always resolve tenant from DB so deleted tenants show 404, not cached content
+export const dynamic = 'force-dynamic'
 
 type Props = { params: Promise<{ tenant: string; slug: string[] }> }
 
@@ -63,6 +66,8 @@ export default async function TenantDynamicRoute({
   const tenant = await getTenantBySubdomain(tenantSubdomain)
 
   if (!tenant) {
+    // Tenant was deleted (e.g. from DB); remove stale entry so middleware stops treating it as valid
+    removeTenantFromCache(tenantSubdomain)
     notFound()
   }
 

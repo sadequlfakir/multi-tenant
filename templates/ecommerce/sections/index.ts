@@ -1,0 +1,5 @@
+export { HeroSection } from './HeroSection'
+export { FeaturedCategoriesSection } from './FeaturedCategoriesSection'
+export { BannerSection } from './BannerSection'
+export { FeaturedProductsSection } from './FeaturedProductsSection'
+export { CollectionsSection } from './CollectionsSection'

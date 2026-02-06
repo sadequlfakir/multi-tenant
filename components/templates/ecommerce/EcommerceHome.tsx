@@ -3,15 +3,43 @@
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tenant } from '@/lib/types'
+import { Tenant, Product } from '@/lib/types'
 import { ShoppingCart, ArrowRight } from 'lucide-react'
+
+import { useEffect, useState } from 'react'
 
 interface EcommerceHomeProps {
   tenant: Tenant
 }
 
 export default function EcommerceHome({ tenant }: EcommerceHomeProps) {
-  const featuredProducts = tenant.config.products?.slice(0, 3) || []
+  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([])
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function load() {
+      try {
+        const res = await fetch('/api/products?featured=true')
+        const data = await res.json()
+        if (!res.ok) {
+          return
+        }
+        if (!cancelled) {
+          const list: Product[] = Array.isArray(data) ? data : []
+          setFeaturedProducts(list.length > 0 ? list.slice(0, 3) : [])
+        }
+      } catch {
+        // Ignore on home
+      }
+    }
+
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [tenant.subdomain])
+
 
   return (
     <div className="min-h-screen bg-white">

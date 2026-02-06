@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
+import { ButtonWithLoader } from '@/components/ui/button-with-loader'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -147,19 +148,10 @@ export default function TrackOrder({ tenant }: TrackOrderProps) {
                     {error}
                   </div>
                 )}
-                <Button type="submit" disabled={loading} className="w-full">
-                  {loading ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
-                      Searching…
-                    </span>
-                  ) : (
-                    <>
-                      <Search className="w-4 h-4 mr-2" />
-                      Track order
-                    </>
-                  )}
-                </Button>
+                <ButtonWithLoader type="submit" loading={loading} loadingLabel="Searching…" className="w-full">
+                  <Search className="w-4 h-4 mr-2" />
+                  Track order
+                </ButtonWithLoader>
               </form>
             </CardContent>
           </Card>

@@ -17,84 +17,6 @@ async function initializeDemoTenants() {
   }
   
   const demoTenants: Tenant[] = [
-    {
-      id: 'tenant-1',
-      name: 'Demo Shop',
-      subdomain: 'shop',
-      template: 'ecommerce',
-      config: {
-        siteName: 'Demo Shop',
-        siteDescription: 'Your one-stop shop for everything',
-        products: [
-          {
-            id: '1',
-            name: 'Wireless Headphones',
-            description: 'Premium wireless headphones with noise cancellation',
-            price: 199.99,
-            image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500',
-            category: 'Electronics',
-          },
-          {
-            id: '2',
-            name: 'Smart Watch',
-            description: 'Feature-rich smartwatch with health tracking',
-            price: 299.99,
-            image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500',
-            category: 'Electronics',
-          },
-          {
-            id: '3',
-            name: 'Laptop Stand',
-            description: 'Ergonomic aluminum laptop stand',
-            price: 49.99,
-            image: 'https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=500',
-            category: 'Accessories',
-          },
-        ],
-      },
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-    {
-      id: 'tenant-2',
-      name: 'John Doe Portfolio',
-      subdomain: 'john',
-      template: 'portfolio',
-      config: {
-        siteName: 'John Doe - Web Developer',
-        siteDescription: 'Creative web developer and designer',
-        about: 'I am a passionate web developer with 5+ years of experience building modern web applications. I specialize in React, Next.js, and TypeScript.',
-        contactEmail: 'john@example.com',
-        projects: [
-          {
-            id: '1',
-            title: 'E-Commerce Platform',
-            description: 'A full-featured e-commerce platform built with Next.js and Stripe',
-            image: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=500',
-            link: 'https://example.com',
-            technologies: ['Next.js', 'TypeScript', 'Stripe'],
-          },
-          {
-            id: '2',
-            title: 'Task Management App',
-            description: 'Collaborative task management application with real-time updates',
-            image: 'https://images.unsplash.com/photo-1611224923853-80b023f02d71?w=500',
-            link: 'https://example.com',
-            technologies: ['React', 'Node.js', 'WebSocket'],
-          },
-          {
-            id: '3',
-            title: 'Weather Dashboard',
-            description: 'Beautiful weather dashboard with location-based forecasts',
-            image: 'https://images.unsplash.com/photo-1504608524841-42fe6f032b4b?w=500',
-            link: 'https://example.com',
-            technologies: ['Vue.js', 'API Integration'],
-          },
-        ],
-      },
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
   ]
   
   await writeTenants(demoTenants)
@@ -106,7 +28,9 @@ async function initializeDemoTenants() {
 export async function getTenantBySubdomain(subdomain: string): Promise<Tenant | null> {
   await initializeDemoTenants()
   const tenants = await readTenants()
-  return tenants.find(t => t.subdomain === subdomain) || null
+  const normalized = (subdomain ?? '').toLowerCase().trim()
+  if (!normalized) return null
+  return tenants.find(t => (t.subdomain ?? '').toLowerCase().trim() === normalized) || null
 }
 
 export async function getTenantByCustomDomain(domain: string): Promise<Tenant | null> {
@@ -119,21 +43,23 @@ export async function createTenant(
   name: string,
   subdomain: string,
   template: 'ecommerce' | 'portfolio',
-  config: Partial<TenantConfig> = {}
+  config: Partial<TenantConfig> = {},
+  isTemplate: boolean = false
 ): Promise<Tenant> {
   await initializeDemoTenants()
   const tenants = await readTenants()
   
-  // Check if subdomain already exists
-  if (tenants.some(t => t.subdomain === subdomain)) {
+  const normalizedSubdomain = subdomain.toLowerCase().trim()
+  if (tenants.some(t => (t.subdomain ?? '').toLowerCase() === normalizedSubdomain)) {
     throw new Error('Subdomain already exists')
   }
   
   const tenant: Tenant = {
     id: `tenant-${Date.now()}`,
     name,
-    subdomain,
+    subdomain: normalizedSubdomain,
     template,
+    isTemplate,
     config: {
       siteName: config.siteName || name,
       siteDescription: config.siteDescription || '',
@@ -145,8 +71,7 @@ export async function createTenant(
   
   tenants.push(tenant)
   await writeTenants(tenants)
-  // Cache the tenant for middleware
-  cacheTenant(subdomain)
+  cacheTenant(normalizedSubdomain)
   return tenant
 }
 
@@ -156,7 +81,8 @@ export async function updateTenantConfig(
 ): Promise<Tenant | null> {
   await initializeDemoTenants()
   const tenants = await readTenants()
-  const tenantIndex = tenants.findIndex(t => t.subdomain === subdomain)
+  const normalized = subdomain.toLowerCase().trim()
+  const tenantIndex = tenants.findIndex(t => (t.subdomain ?? '').toLowerCase() === normalized)
   
   if (tenantIndex === -1) return null
   

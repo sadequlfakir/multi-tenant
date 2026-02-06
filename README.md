@@ -29,6 +29,19 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
+### Database (Supabase, required)
+
+All data (tenants, users, admins, sessions, orders, customers) is stored in **Supabase**. You must configure it:
+
+1. Create a project at [supabase.com](https://supabase.com) and get your project URL and **service role** key (Settings → API).
+2. Add to `.env`:
+   ```env
+   NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+   SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+   ```
+3. Run the initial schema in the Supabase SQL Editor: copy the contents of `supabase/migrations/20250101000000_initial_schema.sql` and run it.
+4. Restart the app.
+
 ## Project Structure
 
 ```
@@ -131,8 +144,10 @@ The platform supports two routing modes:
    - Configure your DNS to point `*.yourdomain.com` to your server
 
 2. **Path Routing** (Development): For local development
-   - Example: `localhost:3000/shop`, `localhost:3000/john`
-   - Automatically falls back to path-based routing on localhost
+   - Example: `localhost:3000/shop`, `localhost:3000/john`, `localhost:3000/myecom`
+   - Always works and is the most reliable for local dev
+
+3. **Subdomain on localhost** (e.g. `http://myecom.localhost:3000/`): Works if your system resolves `*.localhost` to `127.0.0.1`. If a subdomain URL does not load, use path-based instead: `http://localhost:3000/myecom`
 
 ## Demo Sites
 

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
+import { ButtonWithLoader } from '@/components/ui/button-with-loader'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -308,14 +309,15 @@ export default function CheckoutPage({ tenant }: CheckoutPageProps) {
                       </div>
                     </div>
                   </div>
-                  <Button 
+                  <ButtonWithLoader 
                     type="submit" 
                     className="w-full" 
                     size="lg"
-                    disabled={loading}
+                    loading={loading}
+                    loadingLabel="Processing..."
                   >
-                    {loading ? 'Processing...' : 'Place Order'}
-                  </Button>
+                    Place Order
+                  </ButtonWithLoader>
                   <p className="text-xs text-muted-foreground text-center">
                     This is a demo checkout page. No actual payment will be processed.
                   </p>

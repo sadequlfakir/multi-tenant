@@ -3,13 +3,14 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
+import { ButtonWithLoader } from '@/components/ui/button-with-loader'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ImageUrlOrUpload } from '@/components/image-url-or-upload'
 import { Tenant } from '@/lib/types'
-import { Settings, Globe, Search, Palette, Share2, Shield, CheckCircle2, XCircle } from 'lucide-react'
+import { Settings, Globe, Search, Palette, Share2, Shield, CheckCircle2, XCircle, Trash2 } from 'lucide-react'
 
 export default function UserSettingsPage() {
   const router = useRouter()
@@ -23,6 +24,8 @@ export default function UserSettingsPage() {
   const [verificationCode, setVerificationCode] = useState<string | null>(null)
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [faviconFile, setFaviconFile] = useState<File | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState('')
+  const [deleting, setDeleting] = useState(false)
   const [formData, setFormData] = useState({
     // General
     siteName: '',
@@ -430,6 +433,10 @@ export default function UserSettingsPage() {
               <Shield className="w-4 h-4 shrink-0" />
               Advanced
             </TabsTrigger>
+            <TabsTrigger value="account" className="flex items-center gap-2 data-[state=active]:bg-background">
+              <Trash2 className="w-4 h-4 shrink-0" />
+              Account
+            </TabsTrigger>
           </TabsList>
 
           {/* General Settings */}
@@ -508,9 +515,9 @@ export default function UserSettingsPage() {
                     Logo appears in the header. Favicon appears in browser tabs (typically 32×32 or 16×16).
                   </p>
                 </div>
-                <Button onClick={handleSaveGeneral} disabled={saving} className="w-full">
-                  {saving ? 'Saving...' : 'Save General Settings'}
-                </Button>
+                <ButtonWithLoader onClick={handleSaveGeneral} loading={saving} loadingLabel="Saving..." className="w-full">
+                  Save General Settings
+                </ButtonWithLoader>
               </CardContent>
             </Card>
           </TabsContent>
@@ -535,9 +542,9 @@ export default function UserSettingsPage() {
                       onChange={(e) => setFormData({ ...formData, customDomain: e.target.value })}
                       placeholder="mysite.com"
                     />
-                    <Button onClick={handleSetCustomDomain} disabled={saving}>
-                      {saving ? 'Setting...' : 'Set Domain'}
-                    </Button>
+                    <ButtonWithLoader onClick={handleSetCustomDomain} loading={saving} loadingLabel="Setting...">
+                      Set Domain
+                    </ButtonWithLoader>
                   </div>
                   {formData.customDomain && (
                     <div className="mt-4 p-4 bg-muted/50 rounded-lg border border-border space-y-3">
@@ -666,9 +673,9 @@ export default function UserSettingsPage() {
                     placeholder="keyword1, keyword2, keyword3"
                   />
                 </div>
-                <Button onClick={() => handleSaveSection('seo')} disabled={saving} className="w-full">
-                  {saving ? 'Saving...' : 'Save SEO Settings'}
-                </Button>
+                <ButtonWithLoader onClick={() => handleSaveSection('seo')} loading={saving} loadingLabel="Saving..." className="w-full">
+                  Save SEO Settings
+                </ButtonWithLoader>
               </CardContent>
             </Card>
           </TabsContent>
@@ -727,9 +734,9 @@ export default function UserSettingsPage() {
                   />
                   <Label htmlFor="darkMode">Enable Dark Mode</Label>
                 </div>
-                <Button onClick={() => handleSaveSection('theme')} disabled={saving} className="w-full">
-                  {saving ? 'Saving...' : 'Save Theme Settings'}
-                </Button>
+                <ButtonWithLoader onClick={() => handleSaveSection('theme')} loading={saving} loadingLabel="Saving..." className="w-full">
+                  Save Theme Settings
+                </ButtonWithLoader>
               </CardContent>
             </Card>
           </TabsContent>
@@ -789,9 +796,9 @@ export default function UserSettingsPage() {
                     />
                   </div>
                 </div>
-                <Button onClick={() => handleSaveSection('social')} disabled={saving} className="w-full">
-                  {saving ? 'Saving...' : 'Save Social Links'}
-                </Button>
+                <ButtonWithLoader onClick={() => handleSaveSection('social')} loading={saving} loadingLabel="Saving..." className="w-full">
+                  Save Social Links
+                </ButtonWithLoader>
               </CardContent>
             </Card>
           </TabsContent>
@@ -835,8 +842,63 @@ export default function UserSettingsPage() {
                     <Label htmlFor="allowComments">Allow Comments</Label>
                   </div>
                 </div>
-                <Button onClick={() => handleSaveSection('advanced')} disabled={saving} className="w-full">
-                  {saving ? 'Saving...' : 'Save Advanced Settings'}
+                <ButtonWithLoader onClick={() => handleSaveSection('advanced')} loading={saving} loadingLabel="Saving..." className="w-full">
+                  Save Advanced Settings
+                </ButtonWithLoader>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Account / Delete account - top-level tab so it's visible */}
+          <TabsContent value="account">
+            <Card className="border-destructive/50">
+              <CardHeader>
+                <CardTitle className="text-destructive">Delete account</CardTitle>
+                <CardDescription>
+                  Permanently delete your account and all related data. This will remove your user account,
+                  all sessions, your website (tenant), and all its orders and customers. This action cannot be undone.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Type <strong>DELETE</strong> below to confirm.
+                </p>
+                <Input
+                  placeholder="Type DELETE to confirm"
+                  value={deleteConfirm}
+                  onChange={(e) => setDeleteConfirm(e.target.value)}
+                  className="max-w-xs font-mono"
+                  disabled={deleting}
+                />
+                <Button
+                  variant="destructive"
+                  disabled={deleteConfirm !== 'DELETE' || deleting}
+                  onClick={async () => {
+                    if (deleteConfirm !== 'DELETE') return
+                    setDeleting(true)
+                    try {
+                      const token = localStorage.getItem('userToken')
+                      if (!token) {
+                        router.push('/user/login')
+                        return
+                      }
+                      const res = await fetch('/api/users/delete-account', {
+                        method: 'POST',
+                        headers: { Authorization: `Bearer ${token}` },
+                      })
+                      const data = await res.json().catch(() => ({}))
+                      if (!res.ok) throw new Error(data.error || 'Failed to delete account')
+                      localStorage.removeItem('userToken')
+                      localStorage.removeItem('userType')
+                      router.push('/user/login')
+                    } catch (e) {
+                      alert(e instanceof Error ? e.message : 'Failed to delete account')
+                    } finally {
+                      setDeleting(false)
+                    }
+                  }}
+                >
+                  {deleting ? 'Deleting...' : 'Permanently delete my account'}
                 </Button>
               </CardContent>
             </Card>

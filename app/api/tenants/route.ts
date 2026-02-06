@@ -5,31 +5,52 @@ import { cacheTenant } from '@/lib/tenant-cache'
 import { warmupCache } from '@/lib/cache-warmup'
 
 export async function GET(request: NextRequest) {
-  await warmupCache()
-  
+  try {
+    await warmupCache()
+  } catch (e) {
+    console.error('Tenants API warmup:', e)
+  }
+
   const searchParams = request.nextUrl.searchParams
   const subdomain = searchParams.get('subdomain')
   const id = searchParams.get('id')
+  const isTemplateParam = searchParams.get('isTemplate')
 
-  if (subdomain) {
-    const tenant = await getTenantBySubdomain(subdomain)
-    if (!tenant) {
-      return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
+  try {
+    if (subdomain) {
+      const tenant = await getTenantBySubdomain(subdomain)
+      if (!tenant) {
+        return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
+      }
+      return NextResponse.json(tenant)
     }
-    return NextResponse.json(tenant)
-  }
 
-  if (id) {
-    const { getTenantById } = await import('@/lib/tenant-store')
-    const tenant = await getTenantById(id)
-    if (!tenant) {
-      return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
+    if (id) {
+      const { getTenantById } = await import('@/lib/tenant-store')
+      const tenant = await getTenantById(id)
+      if (!tenant) {
+        return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
+      }
+      return NextResponse.json(tenant)
     }
-    return NextResponse.json(tenant)
-  }
 
-  const tenants = await getAllTenants()
-  return NextResponse.json(tenants)
+    const tenants = await getAllTenants()
+
+    if (isTemplateParam !== null) {
+      const wantTemplate = isTemplateParam === 'true'
+      const filtered = tenants.filter((t) => (t.isTemplate ?? false) === wantTemplate)
+      return NextResponse.json(filtered)
+    }
+
+    return NextResponse.json(tenants)
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to load tenants'
+    console.error('GET /api/tenants:', error)
+    return NextResponse.json(
+      { error: message },
+      { status: 500 }
+    )
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -55,7 +76,7 @@ export async function POST(request: NextRequest) {
     }
     
     const body = await request.json()
-    const { name, subdomain, template, config } = body
+    const { name, subdomain, template, config, isTemplate } = body
 
     if (!name || !subdomain || !template) {
       return NextResponse.json(
@@ -72,7 +93,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const tenant = await createTenant(name, subdomain, template, config)
+    const tenant = await createTenant(
+      name,
+      subdomain,
+      template,
+      config,
+      Boolean(isTemplate)
+    )
     // Cache the tenant for middleware
     cacheTenant(subdomain)
     return NextResponse.json(tenant, { status: 201 })

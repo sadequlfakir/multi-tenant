@@ -20,33 +20,31 @@ export function Slider({ sliders, tenant, autoPlay = true, interval = 5000 }: Sl
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
 
-  const activeSliders = sliders.filter(s => s.status === 'active')
-
   useEffect(() => {
-    if (!autoPlay || isPaused || activeSliders.length <= 1) return
+    if (!autoPlay || isPaused || sliders.length <= 1) return
 
     const timer = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % activeSliders.length)
+      setCurrentIndex((prev) => (prev + 1) % sliders.length)
     }, interval)
 
     return () => clearInterval(timer)
-  }, [autoPlay, isPaused, activeSliders.length, interval])
+  }, [autoPlay, isPaused, sliders.length, interval])
 
-  if (activeSliders.length === 0) return null
+  if (sliders.length === 0) return null
 
   const goToSlide = (index: number) => {
     setCurrentIndex(index)
   }
 
   const goToPrevious = () => {
-    setCurrentIndex((prev) => (prev - 1 + activeSliders.length) % activeSliders.length)
+    setCurrentIndex((prev) => (prev - 1 + sliders.length) % sliders.length)
   }
 
   const goToNext = () => {
-    setCurrentIndex((prev) => (prev + 1) % activeSliders.length)
+    setCurrentIndex((prev) => (prev + 1) % sliders.length)
   }
 
-  const currentSlider = activeSliders[currentIndex]
+  const currentSlider = sliders[currentIndex]
 
   return (
     <div
@@ -88,7 +86,7 @@ export function Slider({ sliders, tenant, autoPlay = true, interval = 5000 }: Sl
       </div>
 
       {/* Navigation Arrows */}
-      {activeSliders.length > 1 && (
+      {sliders.length > 1 && (
         <>
           <button
             onClick={goToPrevious}
@@ -108,9 +106,9 @@ export function Slider({ sliders, tenant, autoPlay = true, interval = 5000 }: Sl
       )}
 
       {/* Dots Indicator */}
-      {activeSliders.length > 1 && (
+      {sliders.length > 1 && (
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10">
-          {activeSliders.map((_, index) => (
+          {sliders.map((_, index) => (
             <button
               key={index}
               onClick={() => goToSlide(index)}

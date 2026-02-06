@@ -7,6 +7,9 @@ import { TenantCartProvider } from '@/components/tenant-cart-provider'
 // Ensure templates are registered
 import '@/templates'
 
+// Always fetch tenant from DB (Supabase) so deleted tenants don't show cached data
+export const dynamic = 'force-dynamic'
+
 export default async function TenantPage({
   params,
 }: {

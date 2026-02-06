@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
+import { ButtonWithLoader } from '@/components/ui/button-with-loader'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -90,9 +91,9 @@ export default function AdminLoginPage() {
                 {error}
               </div>
             )}
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Logging in...' : 'Login'}
-            </Button>
+            <ButtonWithLoader type="submit" className="w-full" loading={loading} loadingLabel="Logging in...">
+              Login
+            </ButtonWithLoader>
           </form>
           <div className="mt-4 text-center text-sm text-gray-600">
             <p>Default: admin@example.com / admin123</p>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
+import { ButtonWithLoader } from '@/components/ui/button-with-loader'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -22,6 +23,8 @@ export default function CustomersManagementPage() {
   const [tenant, setTenant] = useState<Tenant | null>(null)
   const [customers, setCustomers] = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null)
   const [formData, setFormData] = useState({
@@ -110,6 +113,7 @@ export default function CustomersManagementPage() {
         phone: formData.phone.trim() || undefined,
       }
 
+      setSaving(true)
       let response
       if (editingCustomer) {
         response = await fetch(`/api/customers/${editingCustomer.id}`, {
@@ -140,6 +144,8 @@ export default function CustomersManagementPage() {
       loadData(token)
     } catch (error: unknown) {
       alert(error instanceof Error ? error.message : 'Failed to save customer')
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -150,6 +156,7 @@ export default function CustomersManagementPage() {
     const token = localStorage.getItem('userToken')
     if (!token) return
 
+    setDeletingId(customerId)
     try {
       const response = await fetch(
         `/api/customers/${customerId}?subdomain=${tenant.subdomain}`,
@@ -266,14 +273,15 @@ export default function CustomersManagementPage() {
                       <Edit className="w-4 h-4 mr-2" />
                       Edit
                     </Button>
-                    <Button
+                    <ButtonWithLoader
                       variant="outline"
                       size="sm"
                       className="text-red-600 hover:text-red-700"
+                      loading={deletingId === customer.id}
                       onClick={() => handleDelete(customer.id)}
                     >
                       <Trash2 className="w-4 h-4" />
-                    </Button>
+                    </ButtonWithLoader>
                   </div>
                 </CardContent>
               </Card>
@@ -334,9 +342,9 @@ export default function CustomersManagementPage() {
               <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" className="bg-gradient-to-r from-blue-500 to-indigo-600">
+              <ButtonWithLoader type="submit" loading={saving} loadingLabel={editingCustomer ? 'Updating...' : 'Creating...'} className="bg-gradient-to-r from-blue-500 to-indigo-600">
                 {editingCustomer ? 'Update Customer' : 'Create Customer'}
-              </Button>
+              </ButtonWithLoader>
             </DialogFooter>
           </form>
         </DialogContent>

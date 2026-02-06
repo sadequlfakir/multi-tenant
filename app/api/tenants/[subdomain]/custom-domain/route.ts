@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantBySubdomain, updateTenantConfig, getAllTenants } from '@/lib/tenant-store'
+import { cacheCustomDomain, cacheTenant, removeTenantFromCache } from '@/lib/tenant-cache'
 import { getAuthenticatedUser } from '@/lib/auth'
 import { readUsers } from '@/lib/storage'
 import { checkTxtRecord } from '@/lib/dns-checker'
@@ -220,6 +221,10 @@ export async function PUT(
       )
     }
 
+    if (verified && updatedTenant.config.customDomain) {
+      cacheCustomDomain(updatedTenant.config.customDomain, subdomain)
+    }
+
     return NextResponse.json({
       customDomain: updatedTenant.config.customDomain,
       customDomainVerified: verified,
@@ -283,6 +288,9 @@ export async function DELETE(
         { status: 500 }
       )
     }
+
+    removeTenantFromCache(subdomain)
+    cacheTenant(subdomain)
 
     return NextResponse.json({ success: true, message: 'Custom domain removed' })
   } catch (error) {
