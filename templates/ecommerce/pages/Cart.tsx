@@ -14,16 +14,9 @@ interface CartPageProps {
 }
 
 export default function CartPage({ tenant }: CartPageProps) {
-  const { cart, removeFromCart, updateQuantity, clearCart } = useCart()
+  const { cart, removeFromCart, updateQuantity, clearCart, maxQuantityPerProduct } = useCart()
 
-  const getProduct = (productId: string) => {
-    return tenant.config.products?.find(p => p.id === productId)
-  }
-
-  const total = cart.reduce((sum, item) => {
-    const product = getProduct(item.productId)
-    return sum + (product ? product.price * item.quantity : 0)
-  }, 0)
+  const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
@@ -56,51 +49,64 @@ export default function CartPage({ tenant }: CartPageProps) {
           <div className="grid md:grid-cols-3 gap-8">
             <div className="md:col-span-2 space-y-4">
               {cart.map((item) => {
-                const product = getProduct(item.productId)
-                if (!product) return null
+                const maxQty = item.stock != null && item.stock >= 0 ? Math.min(maxQuantityPerProduct, item.stock) : maxQuantityPerProduct
+                const subtotal = item.price * item.quantity
                 return (
                   <Card key={item.productId}>
                     <CardContent className="p-6">
                       <div className="flex gap-6">
-                        <img
-                          src={product.image}
-                          alt={product.name}
-                          className="w-24 h-24 object-cover rounded"
-                        />
-                        <div className="flex-1">
-                          <h3 className="text-xl font-bold mb-2">{product.name}</h3>
-                          <p className="text-muted-foreground mb-4 line-clamp-2">{product.description}</p>
-                          <div className="flex items-center justify-between">
+                        <Link href={getTenantLink(tenant, `/products/${item.productId}`)} className="shrink-0">
+                          <img
+                            src={item.image}
+                            alt={item.name}
+                            className="w-24 h-24 object-cover rounded border border-border"
+                          />
+                        </Link>
+                        <div className="flex-1 min-w-0">
+                          <Link href={getTenantLink(tenant, `/products/${item.productId}`)}>
+                            <h3 className="text-xl font-bold mb-2 text-foreground hover:underline">{item.name}</h3>
+                          </Link>
+                          {item.description && (
+                            <p className="text-muted-foreground mb-4 line-clamp-2 text-sm">{item.description}</p>
+                          )}
+                          <div className="flex items-center justify-between flex-wrap gap-4">
                             <div className="flex items-center gap-4">
                               <div>
-                                <p className="text-2xl font-bold">${product.price}</p>
-                                <p className="text-sm text-muted-foreground">Subtotal: ${(product.price * item.quantity).toFixed(2)}</p>
+                                <p className="text-2xl font-bold">${Number(item.price).toFixed(2)}</p>
+                                <p className="text-sm text-muted-foreground">Subtotal: ${subtotal.toFixed(2)}</p>
                               </div>
-                              <div className="flex items-center gap-2 border rounded-lg">
+                              <div className="flex items-center gap-0 border rounded-lg bg-muted/30">
                                 <Button
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => updateQuantity(item.productId, item.quantity - 1)}
-                                  className="h-8 w-8 p-0"
+                                  className="h-9 w-9 p-0 rounded-r-none"
+                                  aria-label="Decrease quantity"
                                 >
                                   <Minus className="w-4 h-4" />
                                 </Button>
-                                <span className="w-12 text-center font-semibold">{item.quantity}</span>
+                                <span className="w-10 text-center font-semibold text-sm tabular-nums">{item.quantity}</span>
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => updateQuantity(item.productId, item.quantity + 1)}
-                                  className="h-8 w-8 p-0"
+                                  onClick={() => updateQuantity(item.productId, Math.min(item.quantity + 1, maxQty))}
+                                  className="h-9 w-9 p-0 rounded-l-none"
+                                  disabled={item.quantity >= maxQty}
+                                  aria-label="Increase quantity"
                                 >
                                   <Plus className="w-4 h-4" />
                                 </Button>
                               </div>
+                              {item.stock != null && item.quantity >= item.stock && (
+                                <span className="text-xs text-amber-600">Max stock</span>
+                              )}
                             </div>
-                            <Button 
-                              variant="ghost" 
+                            <Button
+                              variant="ghost"
                               size="sm"
                               onClick={() => removeFromCart(item.productId)}
-                              className="text-red-600 hover:text-red-700"
+                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                              aria-label="Remove from cart"
                             >
                               <Trash2 className="w-4 h-4" />
                             </Button>

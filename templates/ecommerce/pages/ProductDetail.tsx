@@ -79,15 +79,24 @@ export default function ProductDetail({ tenant, productId }: ProductDetailProps)
 
   const addToCart = () => {
     if (!product) return
-    addToCartContext(product.id, quantity)
-    // Show success message
+    const result = addToCartContext(
+      {
+        id: product.id,
+        name: product.name,
+        image: product.image,
+        price: product.price,
+        description: product.description,
+        stock: product.stock,
+      },
+      quantity
+    )
     const button = document.querySelector('[data-add-to-cart]') as HTMLElement
     if (button) {
       const originalText = button.textContent
-      button.textContent = 'Added to Cart!'
+      button.textContent = result.success ? (result.message || 'Added to Cart!') : (result.message || 'Could not add')
       setTimeout(() => {
         button.textContent = originalText
-      }, 2000)
+      }, 2500)
     }
   }
 
@@ -130,19 +139,34 @@ export default function ProductDetail({ tenant, productId }: ProductDetailProps)
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                      onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                      aria-label="Decrease quantity"
                     >
                       -
                     </Button>
-                    <span className="w-12 text-center">{quantity}</span>
+                    <span className="w-12 text-center tabular-nums">{quantity}</span>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setQuantity(quantity + 1)}
+                      onClick={() =>
+                        setQuantity((q) =>
+                          Math.min(
+                            q + 1,
+                            product.stock != null && product.stock >= 0 ? product.stock : 99
+                          )
+                        )
+                      }
+                      disabled={
+                        product.stock != null && product.stock >= 0 && quantity >= product.stock
+                      }
+                      aria-label="Increase quantity"
                     >
                       +
                     </Button>
                   </div>
+                  {product.stock != null && product.stock >= 0 && (
+                    <span className="text-sm text-muted-foreground">Max: {product.stock}</span>
+                  )}
                 </div>
                 <Button className="w-full" size="lg" onClick={addToCart} data-add-to-cart>
                   <ShoppingCart className="w-5 h-5 mr-2" />

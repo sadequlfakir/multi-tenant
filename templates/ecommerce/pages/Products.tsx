@@ -467,13 +467,23 @@ export default function EcommerceProducts({ tenant }: EcommerceProductsProps) {
                           size="sm"
                           variant="outline"
                           onClick={(e) => {
-                            addToCart(product.id, 1)
+                            const result = addToCart(
+                              {
+                                id: product.id,
+                                name: product.name,
+                                image: product.image,
+                                price: product.price,
+                                description: product.description,
+                                stock: product.stock,
+                              },
+                              1
+                            )
                             const button = e.currentTarget as HTMLElement
                             const originalText = button.textContent
-                            button.textContent = 'Added!'
+                            button.textContent = result.success ? (result.message || 'Added!') : (result.message || 'Error')
                             setTimeout(() => {
                               button.textContent = originalText
-                            }, 1500)
+                            }, 2000)
                           }}
                         >
                           <ShoppingCart className="w-4 h-4 mr-1" />

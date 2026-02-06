@@ -36,30 +36,14 @@ export default function CheckoutPage({ tenant }: CheckoutPageProps) {
     cvv: '',
   })
 
-  const getProduct = (productId: string) => {
-    return tenant.config.products?.find(p => p.id === productId)
-  }
-
-  const orderItems: OrderItem[] = cart.map(item => {
-    const product = getProduct(item.productId)
-    if (!product) {
-      return {
-        productId: item.productId,
-        productName: 'Unknown Product',
-        quantity: item.quantity,
-        price: 0,
-        subtotal: 0,
-      }
-    }
-    return {
-      productId: item.productId,
-      productName: product.name,
-      productImage: product.image,
-      quantity: item.quantity,
-      price: product.price,
-      subtotal: product.price * item.quantity,
-    }
-  })
+  const orderItems: OrderItem[] = cart.map((item) => ({
+    productId: item.productId,
+    productName: item.name,
+    productImage: item.image,
+    quantity: item.quantity,
+    price: item.price,
+    subtotal: item.price * item.quantity,
+  }))
 
   const subtotal = orderItems.reduce((sum, item) => sum + item.subtotal, 0)
   const shippingCost = 0 // Can be calculated based on address
