@@ -5,39 +5,8 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { ButtonWithLoader } from '@/components/ui/button-with-loader'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { ImageUrlOrUpload } from '@/components/image-url-or-upload'
-import { Product, Category, Tenant, VariantOptionSet, VariantOptionSchema } from '@/lib/types'
+import { Product, Category, Tenant } from '@/lib/types'
 import { Plus, Edit, Trash2, Package } from 'lucide-react'
-
-function schemaEqual(a: VariantOptionSchema[] | undefined, b: VariantOptionSchema[] | undefined): boolean {
-  if (!a?.length && !b?.length) return true
-  if (!a?.length || !b?.length || a.length !== b.length) return false
-  return a.every((opt, i) => {
-    const o = b[i]
-    if (!o || opt.name !== o.name) return false
-    if (opt.values?.length !== o.values?.length) return false
-    return opt.values.every((v, j) => v === o.values?.[j])
-  })
-}
-
-function cartesianProduct(schema: VariantOptionSchema[]): Array<Record<string, string>> {
-  if (!schema.length) return []
-  const [head, ...tail] = schema.filter((s) => s.name && s.values?.length)
-  if (!head) return []
-  const rest = cartesianProduct(tail)
-  if (!rest.length) return head.values!.map((v) => ({ [head.name]: v }))
-  return head.values!.flatMap((v) => rest.map((r) => ({ [head.name]: v, ...r })))
-}
 
 export default function ProductsManagementPage() {
   const router = useRouter()
@@ -46,7 +15,6 @@ export default function ProductsManagementPage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [deletingId, setDeletingId] = useState<string | null>(null)
-  const [variantOptionSets, setVariantOptionSets] = useState<VariantOptionSet[]>([])
 
   useEffect(() => {
     const token = localStorage.getItem('userToken')
@@ -80,10 +48,9 @@ export default function ProductsManagementPage() {
         setTenant(userTenant)
 
         if (userTenant.template === 'ecommerce') {
-          const [productsRes, categoriesRes, variantSetsRes] = await Promise.all([
+          const [productsRes, categoriesRes] = await Promise.all([
             fetch(`/api/products?subdomain=${userTenant.subdomain}`),
             fetch(`/api/categories?subdomain=${userTenant.subdomain}`),
-            fetch(`/api/variant-option-sets?subdomain=${userTenant.subdomain}`),
           ])
           if (productsRes.ok) {
             const productsData = await productsRes.json()
@@ -92,10 +59,6 @@ export default function ProductsManagementPage() {
           if (categoriesRes.ok) {
             const categoriesData = await categoriesRes.json()
             setCategories(categoriesData)
-          }
-          if (variantSetsRes.ok) {
-            const variantSetsData = await variantSetsRes.json()
-            setVariantOptionSets(variantSetsData)
           }
         } else {
           router.push('/user/dashboard')
