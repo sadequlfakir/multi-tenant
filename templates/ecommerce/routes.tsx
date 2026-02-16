@@ -6,6 +6,9 @@ import Cart from './pages/Cart'
 import Checkout from './pages/Checkout'
 import OrderSuccess from './pages/OrderSuccess'
 import TrackOrder from './pages/TrackOrder'
+import CustomerLogin from './pages/CustomerLogin'
+import CustomerRegister from './pages/CustomerRegister'
+import CustomerDashboard from './pages/CustomerDashboard'
 
 export function getEcommerceRoutes(): TemplateRouteHandler[] {
   return [
@@ -36,6 +39,18 @@ export function getEcommerceRoutes(): TemplateRouteHandler[] {
     {
       pattern: '/track-order',
       component: (tenant: Tenant) => <TrackOrder tenant={tenant} />,
+    },
+    {
+      pattern: '/customer/login',
+      component: (tenant: Tenant) => <CustomerLogin tenant={tenant} />,
+    },
+    {
+      pattern: '/customer/register',
+      component: (tenant: Tenant) => <CustomerRegister tenant={tenant} />,
+    },
+    {
+      pattern: '/customer/dashboard',
+      component: (tenant: Tenant) => <CustomerDashboard tenant={tenant} />,
     },
   ]
 }

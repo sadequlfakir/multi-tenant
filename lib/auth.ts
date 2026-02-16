@@ -1,5 +1,6 @@
-import { readUsers, readAdmins, User, Admin, readSessions, writeSessions, SessionData } from './storage'
+import { readUsers, readAdmins, User, Admin, readSessions, writeSessions, SessionData, readCustomerAccounts, CustomerAccount } from './storage'
 import { comparePassword } from './password'
+import type { Customer } from './types'
 
 // Session management with JSON persistence
 let sessionsCache: Map<string, SessionData> | null = null
@@ -52,7 +53,15 @@ async function getSessions(): Promise<Map<string, SessionData>> {
 export interface AuthResult {
   success: boolean
   token?: string
-  user?: User | Admin
+  user?: User | Admin | CustomerAccount
+  error?: string
+}
+
+export interface CustomerAuthResult {
+  success: boolean
+  token?: string
+  customerAccount?: CustomerAccount
+  customer?: Customer
   error?: string
 }
 
@@ -65,7 +74,7 @@ function generateToken(): string {
 const TOKEN_EXPIRATION = 90 * 24 * 60 * 60 * 1000
 
 // Create session
-export async function createSession(userId: string, role: 'admin' | 'user'): Promise<string> {
+export async function createSession(userId: string, role: 'admin' | 'user' | 'customer'): Promise<string> {
   const token = generateToken()
   const sessions = await getSessions()
   const sessionData: SessionData = {
@@ -79,7 +88,7 @@ export async function createSession(userId: string, role: 'admin' | 'user'): Pro
 }
 
 // Get session with auto-refresh (extends expiration on use)
-export async function getSession(token: string, autoRefresh: boolean = true): Promise<{ userId: string; role: 'admin' | 'user' } | null> {
+export async function getSession(token: string, autoRefresh: boolean = true): Promise<{ userId: string; role: 'admin' | 'user' | 'customer' } | null> {
   const sessions = await getSessions()
   const session = sessions.get(token)
   if (!session) {
@@ -140,6 +149,32 @@ export async function authenticateUser(email: string, password: string): Promise
   return { success: true, token, user }
 }
 
+// Authenticate customer
+export async function authenticateCustomer(email: string, password: string, tenantId: string): Promise<CustomerAuthResult> {
+  const customerAccounts = await readCustomerAccounts()
+  const account = customerAccounts.find(
+    a => a.email.toLowerCase() === email.toLowerCase() && a.tenantId === tenantId
+  )
+  
+  if (!account) {
+    return { success: false, error: 'Invalid credentials' }
+  }
+  
+  const passwordMatch = await comparePassword(password, account.password)
+  if (!passwordMatch) {
+    return { success: false, error: 'Invalid credentials' }
+  }
+  
+  const token = await createSession(account.id, 'customer')
+  
+  // Get customer details
+  const { readCustomers } = await import('./storage')
+  const customers = await readCustomers()
+  const customer = customers.find(c => c.id === account.customerId) || null
+  
+  return { success: true, token, customerAccount: account, customer: customer || undefined }
+}
+
 // Get authenticated user
 export async function getAuthenticatedUser(token: string): Promise<User | Admin | null> {
   const session = await getSession(token)
@@ -148,10 +183,29 @@ export async function getAuthenticatedUser(token: string): Promise<User | Admin 
   if (session.role === 'admin') {
     const admins = await readAdmins()
     return admins.find(a => a.id === session.userId) || null
-  } else {
+  } else if (session.role === 'user') {
     const users = await readUsers()
     return users.find(u => u.id === session.userId) || null
   }
+  
+  return null
+}
+
+// Get authenticated customer
+export async function getAuthenticatedCustomer(token: string): Promise<{ account: CustomerAccount; customer: Customer } | null> {
+  const session = await getSession(token)
+  if (!session || session.role !== 'customer') return null
+  
+  const customerAccounts = await readCustomerAccounts()
+  const account = customerAccounts.find(a => a.id === session.userId)
+  if (!account) return null
+  
+  const { readCustomers } = await import('./storage')
+  const customers = await readCustomers()
+  const customer = customers.find(c => c.id === account.customerId)
+  if (!customer) return null
+  
+  return { account, customer }
 }
 
 // Logout

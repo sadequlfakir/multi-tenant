@@ -260,7 +260,35 @@ export interface Admin {
 
 export interface SessionData {
   userId: string
-  role: 'admin' | 'user'
+  role: 'admin' | 'user' | 'customer'
   expires: number
+}
+
+// Customer account for e-commerce customers (separate from tenant owners)
+export interface CustomerAccount {
+  id: string
+  customerId: string
+  tenantId: string
+  email: string
+  password: string
+  createdAt: string
+  updatedAt: string
+}
+
+// Customer address (address book)
+export interface CustomerAddress {
+  id: string
+  customerId: string
+  tenantId: string
+  name: string // Address label (e.g., "Home", "Work")
+  address: string
+  city: string
+  state?: string
+  zipCode: string
+  country?: string
+  phone?: string
+  isDefault: boolean
+  createdAt: string
+  updatedAt: string
 }
 

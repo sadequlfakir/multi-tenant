@@ -3,10 +3,10 @@
  * is read/written via Supabase. Ensure NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set.
  */
 
-import type { Tenant, Order, Customer, User, Admin, SessionData } from './types'
+import type { Tenant, Order, Customer, User, Admin, SessionData, CustomerAccount, CustomerAddress } from './types'
 import * as db from './storage-supabase'
 
-export type { User, Admin, SessionData }
+export type { User, Admin, SessionData, CustomerAccount, CustomerAddress }
 
 export async function readTenants(): Promise<Tenant[]> {
   return db.readTenants()
@@ -87,4 +87,22 @@ export async function markPasswordResetTokenAsUsed(token: string): Promise<void>
 
 export async function cleanupExpiredPasswordResetTokens(): Promise<void> {
   return db.cleanupExpiredPasswordResetTokens()
+}
+
+// Customer Accounts
+export async function readCustomerAccounts(): Promise<CustomerAccount[]> {
+  return db.readCustomerAccounts()
+}
+
+export async function writeCustomerAccounts(accounts: CustomerAccount[]): Promise<void> {
+  return db.writeCustomerAccounts(accounts)
+}
+
+// Customer Addresses
+export async function readCustomerAddresses(): Promise<CustomerAddress[]> {
+  return db.readCustomerAddresses()
+}
+
+export async function writeCustomerAddresses(addresses: CustomerAddress[]): Promise<void> {
+  return db.writeCustomerAddresses(addresses)
 }

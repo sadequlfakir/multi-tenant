@@ -1,5 +1,5 @@
 import { getSupabase } from './supabase'
-import type { Tenant, Order, Customer } from './types'
+import type { Tenant, Order, Customer, CustomerAccount, CustomerAddress } from './types'
 import type { User, Admin, SessionData } from './types'
 
 const SUPABASE_REQUIRED_MSG =
@@ -167,7 +167,7 @@ export async function readSessions(): Promise<Record<string, SessionData>> {
     const token = row.token as string
     out[token] = {
       userId: row.user_id as string,
-      role: row.role as 'admin' | 'user',
+      role: row.role as 'admin' | 'user' | 'customer',
       expires: Number(row.expires),
     }
   }
@@ -386,4 +386,92 @@ export async function cleanupExpiredPasswordResetTokens(): Promise<void> {
   const sb = requireSupabase()
   const now = new Date().toISOString()
   await sb.from('password_reset_tokens').delete().lt('expires_at', now)
+}
+
+// Customer Accounts
+function toCustomerAccount(row: Record<string, unknown>): CustomerAccount {
+  return {
+    id: row.id as string,
+    customerId: row.customer_id as string,
+    tenantId: row.tenant_id as string,
+    email: row.email as string,
+    password: row.password as string,
+    createdAt: (row.created_at as string) ?? new Date().toISOString(),
+    updatedAt: (row.updated_at as string) ?? new Date().toISOString(),
+  }
+}
+
+export async function readCustomerAccounts(): Promise<CustomerAccount[]> {
+  const sb = requireSupabase()
+  const { data, error } = await sb.from('customer_accounts').select('*').order('created_at', { ascending: true })
+  if (error) {
+    console.error('Supabase readCustomerAccounts:', error)
+    return []
+  }
+  return (data ?? []).map(toCustomerAccount)
+}
+
+export async function writeCustomerAccounts(accounts: CustomerAccount[]): Promise<void> {
+  const sb = requireSupabase()
+  const rows = accounts.map((a) => ({
+    id: a.id,
+    customer_id: a.customerId,
+    tenant_id: a.tenantId,
+    email: a.email,
+    password: a.password,
+    created_at: a.createdAt,
+    updated_at: a.updatedAt,
+  }))
+  const { error } = await sb.from('customer_accounts').upsert(rows, { onConflict: 'id' })
+  if (error) throw error
+}
+
+// Customer Addresses
+function toCustomerAddress(row: Record<string, unknown>): CustomerAddress {
+  return {
+    id: row.id as string,
+    customerId: row.customer_id as string,
+    tenantId: row.tenant_id as string,
+    name: row.name as string,
+    address: row.address as string,
+    city: row.city as string,
+    state: (row.state as string) ?? undefined,
+    zipCode: row.zip_code as string,
+    country: (row.country as string) ?? undefined,
+    phone: (row.phone as string) ?? undefined,
+    isDefault: (row.is_default as boolean) ?? false,
+    createdAt: (row.created_at as string) ?? new Date().toISOString(),
+    updatedAt: (row.updated_at as string) ?? new Date().toISOString(),
+  }
+}
+
+export async function readCustomerAddresses(): Promise<CustomerAddress[]> {
+  const sb = requireSupabase()
+  const { data, error } = await sb.from('customer_addresses').select('*').order('created_at', { ascending: true })
+  if (error) {
+    console.error('Supabase readCustomerAddresses:', error)
+    return []
+  }
+  return (data ?? []).map(toCustomerAddress)
+}
+
+export async function writeCustomerAddresses(addresses: CustomerAddress[]): Promise<void> {
+  const sb = requireSupabase()
+  const rows = addresses.map((a) => ({
+    id: a.id,
+    customer_id: a.customerId,
+    tenant_id: a.tenantId,
+    name: a.name,
+    address: a.address,
+    city: a.city,
+    state: a.state ?? null,
+    zip_code: a.zipCode,
+    country: a.country ?? null,
+    phone: a.phone ?? null,
+    is_default: a.isDefault,
+    created_at: a.createdAt,
+    updated_at: a.updatedAt,
+  }))
+  const { error } = await sb.from('customer_addresses').upsert(rows, { onConflict: 'id' })
+  if (error) throw error
 }

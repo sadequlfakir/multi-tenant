@@ -1,10 +1,11 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Tenant } from '@/lib/types'
 import { getTenantLink } from '@/lib/link-utils'
-import { ShoppingCart } from 'lucide-react'
+import { ShoppingCart, User } from 'lucide-react'
 import { useCart } from '@/lib/cart-context'
 
 interface EcommerceHeaderProps {
@@ -14,9 +15,17 @@ interface EcommerceHeaderProps {
 export function EcommerceHeader({ tenant }: EcommerceHeaderProps) {
   const { getCartCount } = useCart()
   const cartCount = getCartCount()
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+
+  useEffect(() => {
+    // Check if customer is logged in
+    const token = localStorage.getItem('customerToken')
+    const tenantId = localStorage.getItem('customerTenantId')
+    setIsLoggedIn(!!token && tenantId === tenant.id)
+  }, [tenant.id])
 
   return (
-    <header className="border-b border-border bg-background sticky top-0 z-20">
+    <header className="border-b border-border bg-background sticky top-0 z-50">
       <div className="container mx-auto px-4 py-4 flex items-center justify-between">
         <Link href={getTenantLink(tenant, '/')} className="flex items-center gap-2">
           {tenant.config.logo ? (
@@ -39,6 +48,20 @@ export function EcommerceHeader({ tenant }: EcommerceHeaderProps) {
           <Link href={getTenantLink(tenant, '/track-order')} className="text-muted-foreground hover:text-foreground">
             Track Order
           </Link>
+          {isLoggedIn ? (
+            <Link href={getTenantLink(tenant, '/customer/dashboard')}>
+              <Button variant="outline" size="sm" className="border-border text-foreground hover:bg-accent hover:text-accent-foreground">
+                <User className="w-4 h-4 mr-2" />
+                My Account
+              </Button>
+            </Link>
+          ) : (
+            <Link href={getTenantLink(tenant, '/customer/login')}>
+              <Button variant="outline" size="sm" className="border-border text-foreground hover:bg-accent hover:text-accent-foreground">
+                Login
+              </Button>
+            </Link>
+          )}
           <Link href={getTenantLink(tenant, '/cart')}>
             <Button variant="outline" size="sm" className="relative border-border text-foreground hover:bg-accent hover:text-accent-foreground">
               <ShoppingCart className="w-4 h-4 mr-2" />
