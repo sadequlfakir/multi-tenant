@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ImageUrlOrUpload } from '@/components/image-url-or-upload'
 import { Tenant } from '@/lib/types'
-import { Settings, Globe, Search, Palette, Share2, Shield, CheckCircle2, XCircle, Trash2 } from 'lucide-react'
+import { Settings, Globe, Search, Palette, Share2, Shield, CheckCircle2, XCircle, Trash2, Lock } from 'lucide-react'
 
 export default function UserSettingsPage() {
   const router = useRouter()
@@ -26,6 +26,14 @@ export default function UserSettingsPage() {
   const [faviconFile, setFaviconFile] = useState<File | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState('')
   const [deleting, setDeleting] = useState(false)
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  })
+  const [changingPassword, setChangingPassword] = useState(false)
+  const [passwordError, setPasswordError] = useState('')
+  const [passwordSuccess, setPasswordSuccess] = useState(false)
   const [formData, setFormData] = useState({
     // General
     siteName: '',
@@ -849,8 +857,125 @@ export default function UserSettingsPage() {
             </Card>
           </TabsContent>
 
-          {/* Account / Delete account - top-level tab so it's visible */}
-          <TabsContent value="account">
+          {/* Account / Password change & Delete account */}
+          <TabsContent value="account" className="space-y-6">
+            {/* Change Password */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Lock className="w-5 h-5" />
+                  Change Password
+                </CardTitle>
+                <CardDescription>Update your account password</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="currentPassword">Current Password</Label>
+                  <Input
+                    id="currentPassword"
+                    type="password"
+                    value={passwordData.currentPassword}
+                    onChange={(e) =>
+                      setPasswordData({ ...passwordData, currentPassword: e.target.value })
+                    }
+                    placeholder="Enter current password"
+                    disabled={changingPassword}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="newPassword">New Password</Label>
+                  <Input
+                    id="newPassword"
+                    type="password"
+                    value={passwordData.newPassword}
+                    onChange={(e) =>
+                      setPasswordData({ ...passwordData, newPassword: e.target.value })
+                    }
+                    placeholder="Enter new password"
+                    disabled={changingPassword}
+                    minLength={6}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Must be at least 6 characters</p>
+                </div>
+                <div>
+                  <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                  <Input
+                    id="confirmPassword"
+                    type="password"
+                    value={passwordData.confirmPassword}
+                    onChange={(e) =>
+                      setPasswordData({ ...passwordData, confirmPassword: e.target.value })
+                    }
+                    placeholder="Confirm new password"
+                    disabled={changingPassword}
+                    minLength={6}
+                  />
+                </div>
+                {passwordError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">
+                    {passwordError}
+                  </div>
+                )}
+                {passwordSuccess && (
+                  <div className="p-3 bg-green-50 border border-green-200 rounded-md text-green-700 text-sm">
+                    Password changed successfully!
+                  </div>
+                )}
+                <ButtonWithLoader
+                  onClick={async () => {
+                    if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
+                      setPasswordError('All fields are required')
+                      return
+                    }
+                    if (passwordData.newPassword !== passwordData.confirmPassword) {
+                      setPasswordError('New passwords do not match')
+                      return
+                    }
+                    if (passwordData.newPassword.length < 6) {
+                      setPasswordError('New password must be at least 6 characters')
+                      return
+                    }
+                    setChangingPassword(true)
+                    setPasswordError('')
+                    setPasswordSuccess(false)
+                    try {
+                      const token = localStorage.getItem('userToken')
+                      if (!token) {
+                        router.push('/user/login')
+                        return
+                      }
+                      const res = await fetch('/api/auth/change-password', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          Authorization: `Bearer ${token}`,
+                        },
+                        body: JSON.stringify({
+                          currentPassword: passwordData.currentPassword,
+                          newPassword: passwordData.newPassword,
+                        }),
+                      })
+                      const data = await res.json()
+                      if (!res.ok) throw new Error(data.error || 'Failed to change password')
+                      setPasswordSuccess(true)
+                      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' })
+                      setTimeout(() => setPasswordSuccess(false), 5000)
+                    } catch (e) {
+                      setPasswordError(e instanceof Error ? e.message : 'Failed to change password')
+                    } finally {
+                      setChangingPassword(false)
+                    }
+                  }}
+                  loading={changingPassword}
+                  loadingLabel="Changing..."
+                  disabled={changingPassword}
+                >
+                  Change Password
+                </ButtonWithLoader>
+              </CardContent>
+            </Card>
+
+            {/* Delete Account */}
             <Card className="border-destructive/50">
               <CardHeader>
                 <CardTitle className="text-destructive">Delete account</CardTitle>

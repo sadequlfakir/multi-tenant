@@ -98,10 +98,17 @@ export default function AdminLoginPage() {
           <div className="mt-4 text-center text-sm text-gray-600">
             <p>Default: admin@example.com / admin123</p>
           </div>
-          <div className="mt-4 text-center">
-            <Link href="/" className="text-sm text-blue-600 hover:underline">
-              Back to Home
-            </Link>
+          <div className="mt-4 text-center space-y-2">
+            <p className="text-sm">
+              <Link href="/user/forgot-password" className="text-blue-600 hover:underline">
+                Forgot your password?
+              </Link>
+            </p>
+            <p className="text-sm">
+              <Link href="/" className="text-blue-600 hover:underline">
+                Back to Home
+              </Link>
+            </p>
           </div>
         </CardContent>
       </Card>

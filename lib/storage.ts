@@ -67,3 +67,24 @@ export async function initializeDefaultAdmin(): Promise<void> {
 export async function deleteUserAccount(userId: string): Promise<{ subdomain: string | null }> {
   return db.deleteUserAccount(userId)
 }
+
+export type { PasswordResetToken } from './storage-supabase'
+
+export async function createPasswordResetToken(
+  userId: string,
+  userType: 'user' | 'admin'
+): Promise<import('./storage-supabase').PasswordResetToken> {
+  return db.createPasswordResetToken(userId, userType)
+}
+
+export async function findPasswordResetToken(token: string): Promise<import('./storage-supabase').PasswordResetToken | null> {
+  return db.findPasswordResetToken(token)
+}
+
+export async function markPasswordResetTokenAsUsed(token: string): Promise<void> {
+  return db.markPasswordResetTokenAsUsed(token)
+}
+
+export async function cleanupExpiredPasswordResetTokens(): Promise<void> {
+  return db.cleanupExpiredPasswordResetTokens()
+}

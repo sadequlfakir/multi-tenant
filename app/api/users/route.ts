@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { readUsers, writeUsers, User } from '@/lib/storage'
 import { getAuthenticatedUser } from '@/lib/auth'
 import { getTenantById } from '@/lib/tenant-store'
+import { hashPassword } from '@/lib/password'
 
 // Get all users (admin only)
 export async function GET(request: NextRequest) {
@@ -63,11 +64,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const hashedPassword = await hashPassword(password)
+    
     const newUser: User = {
       id: `user-${Date.now()}`,
       email,
       name,
-      password, // In production, hash this
+      password: hashedPassword,
       tenantId: tenantId || '', // Can be empty, user will create tenant later
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),

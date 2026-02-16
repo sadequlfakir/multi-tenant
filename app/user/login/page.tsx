@@ -95,11 +95,16 @@ export default function UserLoginPage() {
               Login
             </ButtonWithLoader>
           </form>
-          <div className="mt-4 text-center">
+          <div className="mt-4 text-center space-y-2">
             <p className="text-sm text-gray-600">
               Don't have an account?{' '}
               <Link href="/user/register" className="text-blue-600 hover:underline">
                 Sign up
+              </Link>
+            </p>
+            <p className="text-sm">
+              <Link href="/user/forgot-password" className="text-blue-600 hover:underline">
+                Forgot your password?
               </Link>
             </p>
           </div>

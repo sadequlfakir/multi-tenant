@@ -256,11 +256,13 @@ export async function writeCustomers(customers: Customer[]): Promise<void> {
 export async function initializeDefaultAdmin(): Promise<void> {
   const admins = await readAdmins()
   if (admins.length === 0) {
+    const { hashPassword } = await import('./password')
+    const hashedPassword = await hashPassword('admin123')
     const defaultAdmin: Admin = {
       id: 'admin-1',
       email: 'admin@example.com',
       name: 'Super Admin',
-      password: 'admin123',
+      password: hashedPassword,
       role: 'super_admin',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -304,4 +306,84 @@ export async function deleteUserAccount(userId: string): Promise<{ subdomain: st
   await sb.from('users').delete().eq('id', userId)
 
   return { subdomain }
+}
+
+// Password reset tokens
+export interface PasswordResetToken {
+  id: string
+  userId: string
+  userType: 'user' | 'admin'
+  token: string
+  expiresAt: string
+  used: boolean
+  createdAt: string
+}
+
+export async function createPasswordResetToken(
+  userId: string,
+  userType: 'user' | 'admin'
+): Promise<PasswordResetToken> {
+  const sb = requireSupabase()
+  const token = Math.random().toString(36).substring(2) + Date.now().toString(36) + Math.random().toString(36).substring(2)
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000) // 1 hour from now
+  
+  const id = `prt-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+  const row = {
+    id,
+    user_id: userId,
+    user_type: userType,
+    token,
+    expires_at: expiresAt.toISOString(),
+    used: false,
+    created_at: new Date().toISOString(),
+  }
+  
+  const { error } = await sb.from('password_reset_tokens').insert(row)
+  if (error) throw error
+  
+  return {
+    id,
+    userId,
+    userType,
+    token,
+    expiresAt: expiresAt.toISOString(),
+    used: false,
+    createdAt: row.created_at,
+  }
+}
+
+export async function findPasswordResetToken(token: string): Promise<PasswordResetToken | null> {
+  const sb = requireSupabase()
+  const { data, error } = await sb
+    .from('password_reset_tokens')
+    .select('*')
+    .eq('token', token)
+    .single()
+  
+  if (error || !data) return null
+  
+  return {
+    id: data.id as string,
+    userId: data.user_id as string,
+    userType: data.user_type as 'user' | 'admin',
+    token: data.token as string,
+    expiresAt: data.expires_at as string,
+    used: data.used as boolean,
+    createdAt: data.created_at as string,
+  }
+}
+
+export async function markPasswordResetTokenAsUsed(token: string): Promise<void> {
+  const sb = requireSupabase()
+  const { error } = await sb
+    .from('password_reset_tokens')
+    .update({ used: true })
+    .eq('token', token)
+  if (error) throw error
+}
+
+export async function cleanupExpiredPasswordResetTokens(): Promise<void> {
+  const sb = requireSupabase()
+  const now = new Date().toISOString()
+  await sb.from('password_reset_tokens').delete().lt('expires_at', now)
 }

@@ -1,4 +1,5 @@
 import { readUsers, readAdmins, User, Admin, readSessions, writeSessions, SessionData } from './storage'
+import { comparePassword } from './password'
 
 // Session management with JSON persistence
 let sessionsCache: Map<string, SessionData> | null = null
@@ -106,9 +107,14 @@ export async function getSession(token: string, autoRefresh: boolean = true): Pr
 // Authenticate admin
 export async function authenticateAdmin(email: string, password: string): Promise<AuthResult> {
   const admins = await readAdmins()
-  const admin = admins.find(a => a.email === email && a.password === password)
+  const admin = admins.find(a => a.email === email)
   
   if (!admin) {
+    return { success: false, error: 'Invalid credentials' }
+  }
+  
+  const passwordMatch = await comparePassword(password, admin.password)
+  if (!passwordMatch) {
     return { success: false, error: 'Invalid credentials' }
   }
   
@@ -119,9 +125,14 @@ export async function authenticateAdmin(email: string, password: string): Promis
 // Authenticate user
 export async function authenticateUser(email: string, password: string): Promise<AuthResult> {
   const users = await readUsers()
-  const user = users.find(u => u.email === email && u.password === password)
+  const user = users.find(u => u.email === email)
   
   if (!user) {
+    return { success: false, error: 'Invalid credentials' }
+  }
+  
+  const passwordMatch = await comparePassword(password, user.password)
+  if (!passwordMatch) {
     return { success: false, error: 'Invalid credentials' }
   }
   
