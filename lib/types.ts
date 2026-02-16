@@ -292,3 +292,36 @@ export interface CustomerAddress {
   updatedAt: string
 }
 
+// Product review
+export interface ProductReview {
+  id: string
+  productId: string
+  tenantId: string
+  customerId: string
+  orderId: string
+  rating: number // 1-5
+  title?: string
+  comment?: string
+  createdAt: string
+  updatedAt: string
+  // Populated fields
+  customerName?: string
+  customerEmail?: string
+}
+
+// Product comment/Q&A
+export interface ProductComment {
+  id: string
+  productId: string
+  tenantId: string
+  customerId: string
+  comment: string
+  parentId?: string // For replies
+  createdAt: string
+  updatedAt: string
+  // Populated fields
+  customerName?: string
+  customerEmail?: string
+  replies?: ProductComment[] // Nested replies
+}
+

@@ -9,6 +9,8 @@ import { getTenantLink } from '@/lib/link-utils'
 import { ShoppingCart, ArrowLeft } from 'lucide-react'
 import { useCart } from '@/lib/cart-context'
 import { EcommerceHeader } from '@/components/ecommerce-header'
+import { ProductReviews } from '@/components/product-reviews'
+import { ProductComments } from '@/components/product-comments'
 
 function findVariant(variants: ProductVariant[] | undefined, options: Record<string, string>): ProductVariant | null {
   if (!variants?.length) return null
@@ -262,18 +264,37 @@ export default function ProductDetail({ tenant, productId }: ProductDetailProps)
               </CardContent>
             </Card>
 
-            {/* Comments section – only shown when Allow Comments is enabled in Settings */}
-            {tenant.config.settings?.allowComments !== false && (
-              <Card className="mt-6">
-                <CardContent className="p-6">
-                  <h3 className="text-lg font-semibold text-foreground mb-2">Comments</h3>
-                  <p className="text-muted-foreground text-sm">
-                    Comments are enabled for this product. A full comment system (post, moderate, reply) can be added later with an API and storage.
-                  </p>
-                </CardContent>
-              </Card>
-            )}
           </div>
+        </div>
+
+        {/* Reviews Section */}
+        <div className="mt-12">
+          <ProductReviews
+            productId={productId}
+            tenantSubdomain={tenant.subdomain}
+            isCustomerLoggedIn={(() => {
+              const token = typeof window !== 'undefined' ? localStorage.getItem('customerToken') : null
+              const tenantId = typeof window !== 'undefined' ? localStorage.getItem('customerTenantId') : null
+              return !!token && tenantId === tenant.id
+            })()}
+          />
+        </div>
+
+        {/* Comments & Questions Section */}
+        <div className="mt-12">
+          <ProductComments
+            productId={productId}
+            tenantSubdomain={tenant.subdomain}
+            isCustomerLoggedIn={(() => {
+              const token = typeof window !== 'undefined' ? localStorage.getItem('customerToken') : null
+              const tenantId = typeof window !== 'undefined' ? localStorage.getItem('customerTenantId') : null
+              return !!token && tenantId === tenant.id
+            })()}
+            currentCustomerId={(() => {
+              // This will be set after customer data is loaded
+              return undefined
+            })()}
+          />
         </div>
       </section>
 

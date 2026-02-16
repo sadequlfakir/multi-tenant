@@ -3,10 +3,10 @@
  * is read/written via Supabase. Ensure NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set.
  */
 
-import type { Tenant, Order, Customer, User, Admin, SessionData, CustomerAccount, CustomerAddress } from './types'
+import type { Tenant, Order, Customer, User, Admin, SessionData, CustomerAccount, CustomerAddress, ProductReview, ProductComment } from './types'
 import * as db from './storage-supabase'
 
-export type { User, Admin, SessionData, CustomerAccount, CustomerAddress }
+export type { User, Admin, SessionData, CustomerAccount, CustomerAddress, ProductReview, ProductComment }
 
 export async function readTenants(): Promise<Tenant[]> {
   return db.readTenants()
@@ -105,4 +105,22 @@ export async function readCustomerAddresses(): Promise<CustomerAddress[]> {
 
 export async function writeCustomerAddresses(addresses: CustomerAddress[]): Promise<void> {
   return db.writeCustomerAddresses(addresses)
+}
+
+// Product Reviews
+export async function readProductReviews(): Promise<ProductReview[]> {
+  return db.readProductReviews()
+}
+
+export async function writeProductReviews(reviews: ProductReview[]): Promise<void> {
+  return db.writeProductReviews(reviews)
+}
+
+// Product Comments
+export async function readProductComments(): Promise<ProductComment[]> {
+  return db.readProductComments()
+}
+
+export async function writeProductComments(comments: ProductComment[]): Promise<void> {
+  return db.writeProductComments(comments)
 }

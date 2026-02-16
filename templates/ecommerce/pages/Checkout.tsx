@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -8,7 +8,7 @@ import { ButtonWithLoader } from '@/components/ui/button-with-loader'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Tenant, OrderItem } from '@/lib/types'
+import { Tenant, OrderItem, CustomerAddress } from '@/lib/types'
 import { getTenantLink } from '@/lib/link-utils'
 import { ArrowLeft } from 'lucide-react'
 import { useCart } from '@/lib/cart-context'
@@ -22,6 +22,10 @@ export default function CheckoutPage({ tenant }: CheckoutPageProps) {
   const router = useRouter()
   const { cart, clearCart } = useCart()
   const [loading, setLoading] = useState(false)
+  const [isCustomerLoggedIn, setIsCustomerLoggedIn] = useState(false)
+  const [customerId, setCustomerId] = useState<string | null>(null)
+  const [addresses, setAddresses] = useState<CustomerAddress[]>([])
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -35,6 +39,74 @@ export default function CheckoutPage({ tenant }: CheckoutPageProps) {
     expiry: '',
     cvv: '',
   })
+
+  // Detect logged-in customer and load profile + saved addresses
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const token = localStorage.getItem('customerToken')
+    const tenantId = localStorage.getItem('customerTenantId')
+    const loggedIn = !!token && tenantId === tenant.id
+    setIsCustomerLoggedIn(loggedIn)
+
+    if (!loggedIn || !token) return
+
+    // Load customer profile to prefill name/email/phone
+    const loadProfileAndAddresses = async () => {
+      try {
+        const profileRes = await fetch('/api/customer/auth/me', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+        if (profileRes.ok) {
+          const profile = await profileRes.json()
+          setCustomerId(profile.id)
+          setFormData((prev) => ({
+            ...prev,
+            name: profile.name || prev.name,
+            email: profile.email || prev.email,
+            phone: profile.phone || prev.phone,
+          }))
+        }
+      } catch (err) {
+        // Ignore profile errors, checkout can still work
+        console.error('Failed to load customer profile for checkout:', err)
+      }
+
+      try {
+        const addrRes = await fetch('/api/customer/addresses', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+        if (addrRes.ok) {
+          const data = (await addrRes.json()) as CustomerAddress[]
+          setAddresses(data)
+          const defaultAddress = data.find((a) => a.isDefault) || data[0]
+          if (defaultAddress) {
+            setSelectedAddressId(defaultAddress.id)
+            applyAddressToForm(defaultAddress)
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load customer addresses for checkout:', err)
+      }
+    }
+
+    loadProfileAndAddresses()
+  }, [tenant.id])
+
+  const applyAddressToForm = (address: CustomerAddress) => {
+    setFormData((prev) => ({
+      ...prev,
+      address: address.address,
+      city: address.city,
+      state: address.state || '',
+      zipCode: address.zipCode,
+      country: address.country || 'US',
+    }))
+  }
 
   const orderItems: OrderItem[] = cart.map((item) => {
     const unitPrice = item.price + (item.variantPriceAdjustment ?? 0)
@@ -144,6 +216,61 @@ export default function CheckoutPage({ tenant }: CheckoutPageProps) {
                   <CardTitle>Shipping Information</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {isCustomerLoggedIn && (
+                    <div className="mb-4 rounded-md border bg-muted p-3 text-sm text-muted-foreground">
+                      <p>
+                        You are checking out as a <span className="font-semibold">logged-in customer</span>.
+                      </p>
+                      {addresses.length > 0 ? (
+                        <p>Choose a saved address below or edit the fields directly.</p>
+                      ) : (
+                        <p>You don't have any saved addresses yet. The address you enter will be used for this order.</p>
+                      )}
+                    </div>
+                  )}
+
+                  {isCustomerLoggedIn && addresses.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">Saved Addresses</p>
+                      <div className="space-y-2">
+                        {addresses.map((address) => (
+                          <label
+                            key={address.id}
+                            className="flex cursor-pointer items-start gap-2 rounded-md border p-3 text-sm hover:bg-muted"
+                          >
+                            <input
+                              type="radio"
+                              name="saved-address"
+                              className="mt-1"
+                              checked={selectedAddressId === address.id}
+                              onChange={() => {
+                                setSelectedAddressId(address.id)
+                                applyAddressToForm(address)
+                              }}
+                            />
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold">{address.name}</span>
+                                {address.isDefault && (
+                                  <span className="rounded bg-primary/10 px-2 py-0.5 text-xs text-primary">
+                                    Default
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {address.address}, {address.city}, {address.state} {address.zipCode}
+                                {address.country && `, ${address.country}`}
+                              </p>
+                              {address.phone && (
+                                <p className="text-xs text-muted-foreground">Phone: {address.phone}</p>
+                              )}
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   <div>
                     <Label htmlFor="name">Full Name *</Label>
                     <Input 

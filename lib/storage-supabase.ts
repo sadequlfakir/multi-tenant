@@ -1,5 +1,5 @@
 import { getSupabase } from './supabase'
-import type { Tenant, Order, Customer, CustomerAccount, CustomerAddress } from './types'
+import type { Tenant, Order, Customer, CustomerAccount, CustomerAddress, ProductReview, ProductComment } from './types'
 import type { User, Admin, SessionData } from './types'
 
 const SUPABASE_REQUIRED_MSG =
@@ -473,5 +473,89 @@ export async function writeCustomerAddresses(addresses: CustomerAddress[]): Prom
     updated_at: a.updatedAt,
   }))
   const { error } = await sb.from('customer_addresses').upsert(rows, { onConflict: 'id' })
+  if (error) throw error
+}
+
+// Product Reviews
+function toProductReview(row: Record<string, unknown>): ProductReview {
+  return {
+    id: row.id as string,
+    productId: row.product_id as string,
+    tenantId: row.tenant_id as string,
+    customerId: row.customer_id as string,
+    orderId: row.order_id as string,
+    rating: Number(row.rating ?? 5),
+    title: (row.title as string) ?? undefined,
+    comment: (row.comment as string) ?? undefined,
+    createdAt: (row.created_at as string) ?? new Date().toISOString(),
+    updatedAt: (row.updated_at as string) ?? new Date().toISOString(),
+  }
+}
+
+export async function readProductReviews(): Promise<ProductReview[]> {
+  const sb = requireSupabase()
+  const { data, error } = await sb.from('product_reviews').select('*').order('created_at', { ascending: false })
+  if (error) {
+    console.error('Supabase readProductReviews:', error)
+    return []
+  }
+  return (data ?? []).map(toProductReview)
+}
+
+export async function writeProductReviews(reviews: ProductReview[]): Promise<void> {
+  const sb = requireSupabase()
+  const rows = reviews.map((r) => ({
+    id: r.id,
+    product_id: r.productId,
+    tenant_id: r.tenantId,
+    customer_id: r.customerId,
+    order_id: r.orderId,
+    rating: r.rating,
+    title: r.title ?? null,
+    comment: r.comment ?? null,
+    created_at: r.createdAt,
+    updated_at: r.updatedAt,
+  }))
+  const { error } = await sb.from('product_reviews').upsert(rows, { onConflict: 'id' })
+  if (error) throw error
+}
+
+// Product Comments
+function toProductComment(row: Record<string, unknown>): ProductComment {
+  return {
+    id: row.id as string,
+    productId: row.product_id as string,
+    tenantId: row.tenant_id as string,
+    customerId: row.customer_id as string,
+    comment: row.comment as string,
+    parentId: (row.parent_id as string) ?? undefined,
+    createdAt: (row.created_at as string) ?? new Date().toISOString(),
+    updatedAt: (row.updated_at as string) ?? new Date().toISOString(),
+  }
+}
+
+export async function readProductComments(): Promise<ProductComment[]> {
+  const sb = requireSupabase()
+  const { data, error } = await sb.from('product_comments').select('*').order('created_at', { ascending: false })
+  if (error) {
+    console.error('Supabase readProductComments:', error)
+    return []
+  }
+  return (data ?? []).map(toProductComment)
+}
+
+export async function writeProductComments(comments: ProductComment[]): Promise<void> {
+  const sb = requireSupabase()
+  const rows = comments.map((c) => ({
+    id: c.id,
+    product_id: c.productId,
+    tenant_id: c.tenantId,
+    customer_id: c.customerId,
+    comment: c.comment,
+    parent_id: c.parentId ?? null,
+    created_at: c.createdAt,
+    updated_at: c.updatedAt,
+  }))
+  const { error } = await sb.from('product_comments').upsert(rows, { onConflict: 'id' })
   if (error) throw error
 }
