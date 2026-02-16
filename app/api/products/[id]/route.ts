@@ -7,6 +7,7 @@ import { Product } from '@/lib/types'
 import { isCloudinaryUrl, deleteByUrl } from '@/lib/cloudinary'
 import { getSupabase } from '@/lib/supabase'
 import { mapProductRow, mapVariantRow } from '@/lib/product-api-mapper'
+import { generateSlug, ensureUniqueSlug } from '@/lib/slug-utils'
 
 // GET - Tenant from Host or query. Storefront gets only active; dashboard gets any status.
 export async function GET(
@@ -43,12 +44,21 @@ export async function GET(
       )
     }
 
-    const { data, error } = await supabase
+    // Support both UUID (id) and slug lookups
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+    
+    let query = supabase
       .from('products')
       .select('*')
       .eq('tenant_id', tenant.id)
-      .eq('id', id)
-      .single()
+    
+    if (isUUID) {
+      query = query.eq('id', id)
+    } else {
+      query = query.eq('slug', id)
+    }
+    
+    const { data, error } = await query.single()
 
     if (error) {
       if (error.code === 'PGRST116') {
@@ -182,6 +192,36 @@ export async function PUT(
           : undefined
     }
 
+    // Handle slug generation
+    let slug: string | null = (existing as any).slug
+    if (productData.slug !== undefined) {
+      if (productData.slug === '' || productData.slug === null) {
+        // Auto-generate from name if slug is cleared
+        const productName = productData.name ?? (existing as any).name
+        slug = generateSlug(productName)
+      } else {
+        slug = generateSlug(productData.slug)
+      }
+    } else if (productData.name && !slug) {
+      // Auto-generate slug if name changed and no slug exists
+      slug = generateSlug(productData.name)
+    }
+
+    // Ensure slug uniqueness
+    if (slug) {
+      const { data: existingProducts } = await supabase
+        .from('products')
+        .select('slug')
+        .eq('tenant_id', tenant.id)
+        .neq('id', id)
+      
+      const existingSlugs = (existingProducts || [])
+        .map((p: any) => p.slug)
+        .filter(Boolean)
+      
+      slug = ensureUniqueSlug(slug, existingSlugs, (existing as any).slug)
+    }
+
     const updatePayload: Record<string, unknown> = {
       name: productData.name ?? (existing as any).name,
       description: productData.description ?? (existing as any).description,
@@ -190,6 +230,7 @@ export async function PUT(
       category: productData.category ?? (existing as any).category,
       stock: productData.stock ?? (existing as any).stock,
       sku: productData.sku ?? (existing as any).sku,
+      slug: slug ?? null,
       featured: productData.featured ?? (existing as any).featured,
       status: productData.status ?? (existing as any).status,
       seo_title: productData.seoTitle ?? (existing as any).seo_title,

@@ -37,6 +37,7 @@ export default function NewProductPage() {
     sku: '',
     featured: false,
     status: 'active' as Product['status'],
+    slug: '',
     seoTitle: '',
     seoDescription: '',
     seoKeywords: '',
@@ -159,6 +160,7 @@ export default function NewProductPage() {
         sku: formData.sku.trim() || undefined,
         featured: formData.featured,
         status: formData.status,
+        slug: formData.slug.trim() || undefined,
         seoTitle: formData.seoTitle.trim() || undefined,
         seoDescription: formData.seoDescription.trim() || undefined,
         seoKeywords: formData.seoKeywords
@@ -435,6 +437,23 @@ export default function NewProductPage() {
                   <option value="draft">Draft</option>
                   <option value="archived">Archived</option>
                 </select>
+              </div>
+            </div>
+            <div className="border-t pt-4 space-y-2">
+              <p className="text-sm font-medium text-gray-700">URL Slug (optional)</p>
+              <div>
+                <Label htmlFor="slug">Product Slug</Label>
+                <Input
+                  id="slug"
+                  value={formData.slug}
+                  onChange={(e) =>
+                    setFormData({ ...formData, slug: e.target.value })
+                  }
+                  placeholder="product-name-slug (auto-generated from name if empty)"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  SEO-friendly URL. Leave empty to auto-generate from product name.
+                </p>
               </div>
             </div>
             <div className="border-t pt-4 space-y-2">

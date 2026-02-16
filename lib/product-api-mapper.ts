@@ -13,6 +13,7 @@ export function mapProductRow(row: DbProduct): Product {
     category: (row.category as string) ?? undefined,
     stock: row.stock != null ? Number(row.stock) : undefined,
     sku: (row.sku as string) ?? undefined,
+    slug: (row.slug as string) ?? undefined,
     featured: Boolean(row.featured),
     status: (row.status as Product['status']) ?? 'active',
     variantSchema: (row.variant_schema as Product['variantSchema']) ?? undefined,

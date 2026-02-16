@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Tenant, Product, Category } from '@/lib/types'
 import { getTenantLink } from '@/lib/link-utils'
+import { getProductLink } from '@/lib/product-link-utils'
 import { ShoppingCart, Search, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useCart } from '@/lib/cart-context'
 import { EcommerceHeader } from '@/components/ecommerce-header'
@@ -489,7 +490,7 @@ export default function EcommerceProducts({ tenant }: EcommerceProductsProps) {
                           <ShoppingCart className="w-4 h-4 mr-1" />
                           Add to Cart
                         </Button>
-                        <Link href={getTenantLink(tenant, `/products/${product.id}`)}>
+                        <Link href={getProductLink(tenant, product)}>
                           <Button size="sm">Details</Button>
                         </Link>
                       </div>

@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tenant } from '@/lib/types'
 import type { Product } from '@/lib/types'
 import { getTenantLink } from '@/lib/link-utils'
+import { getProductLink } from '@/lib/product-link-utils'
 
 interface FeaturedProductsSectionProps {
   tenant: Tenant
@@ -101,7 +102,7 @@ export function FeaturedProductsSection({ tenant }: FeaturedProductsSectionProps
             <CardContent>
               <div className="flex items-center justify-between">
                 <span className="text-2xl font-bold">${product.price}</span>
-                <Link href={getTenantLink(tenant, `/products/${product.id}`)}>
+                <Link href={getProductLink(tenant, product)}>
                   <Button>View Details</Button>
                 </Link>
               </div>

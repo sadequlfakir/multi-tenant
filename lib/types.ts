@@ -104,6 +104,7 @@ export interface Product {
   category?: string
   stock?: number
   sku?: string
+  slug?: string // SEO-friendly URL slug
   featured?: boolean
   status?: 'active' | 'draft' | 'archived'
   /** Variant dimensions (e.g. Color, Size) and their values */

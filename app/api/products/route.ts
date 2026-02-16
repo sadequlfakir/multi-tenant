@@ -198,6 +198,28 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Generate slug if not provided
+    let slug: string | null = null
+    if (productData.slug) {
+      slug = generateSlug(productData.slug)
+    } else if (productData.name) {
+      slug = generateSlug(productData.name)
+    }
+
+    // Ensure slug uniqueness
+    if (slug) {
+      const { data: existingProducts } = await supabase
+        .from('products')
+        .select('slug')
+        .eq('tenant_id', tenant.id)
+      
+      const existingSlugs = (existingProducts || [])
+        .map((p: any) => p.slug)
+        .filter(Boolean)
+      
+      slug = ensureUniqueSlug(slug, existingSlugs)
+    }
+
     const insertPayload: Record<string, unknown> = {
       tenant_id: tenant.id,
       name: productData.name || '',
@@ -207,6 +229,7 @@ export async function POST(request: NextRequest) {
       category: productData.category || '',
       stock: productData.stock ?? null,
       sku: productData.sku || null,
+      slug: slug,
       featured: productData.featured ?? false,
       status: productData.status || 'active',
       seo_title: productData.seoTitle || null,
