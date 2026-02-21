@@ -52,6 +52,13 @@ export async function GET(request: NextRequest) {
     }
 
     const usePagination = searchParams.has('page') || searchParams.has('limit')
+    const idsParam = searchParams.get('ids')
+    const idsFilter = idsParam
+      ? idsParam
+          .split(',')
+          .map((id) => id.trim())
+          .filter(Boolean)
+      : null
 
     let query = supabase
       .from('products')
@@ -60,6 +67,9 @@ export async function GET(request: NextRequest) {
 
     if (!isDashboard) {
       query = query.eq('status', 'active')
+    }
+    if (idsFilter && idsFilter.length > 0) {
+      query = query.in('id', idsFilter)
     }
     if (featured === 'true') {
       query = query.eq('featured', true)

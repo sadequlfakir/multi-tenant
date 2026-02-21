@@ -9,6 +9,7 @@ import TrackOrder from './pages/TrackOrder'
 import CustomerLogin from './pages/CustomerLogin'
 import CustomerRegister from './pages/CustomerRegister'
 import CustomerDashboard from './pages/CustomerDashboard'
+import WishlistRedirect from './pages/WishlistRedirect'
 
 export function getEcommerceRoutes(): TemplateRouteHandler[] {
   return [
@@ -25,6 +26,10 @@ export function getEcommerceRoutes(): TemplateRouteHandler[] {
     {
       pattern: '/cart',
       component: (tenant: Tenant) => <Cart tenant={tenant} />,
+    },
+    {
+      pattern: '/wishlist',
+      component: (tenant: Tenant) => <WishlistRedirect tenant={tenant} />,
     },
     {
       pattern: '/checkout',

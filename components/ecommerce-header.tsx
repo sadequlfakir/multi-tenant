@@ -5,8 +5,9 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Tenant } from '@/lib/types'
 import { getTenantLink } from '@/lib/link-utils'
-import { ShoppingCart, User } from 'lucide-react'
+import { ShoppingCart, User, Heart } from 'lucide-react'
 import { useCart } from '@/lib/cart-context'
+import { useWishlist } from '@/lib/wishlist-context'
 
 interface EcommerceHeaderProps {
   tenant: Tenant
@@ -14,7 +15,9 @@ interface EcommerceHeaderProps {
 
 export function EcommerceHeader({ tenant }: EcommerceHeaderProps) {
   const { getCartCount } = useCart()
+  const { getWishlistCount } = useWishlist()
   const cartCount = getCartCount()
+  const wishlistCount = getWishlistCount()
   const [isLoggedIn, setIsLoggedIn] = useState(false)
 
   useEffect(() => {
@@ -59,6 +62,19 @@ export function EcommerceHeader({ tenant }: EcommerceHeaderProps) {
             <Link href={getTenantLink(tenant, '/customer/login')}>
               <Button variant="outline" size="sm" className="border-border text-foreground hover:bg-accent hover:text-accent-foreground">
                 Login
+              </Button>
+            </Link>
+          )}
+          {isLoggedIn && (
+            <Link href={getTenantLink(tenant, '/customer/dashboard?section=wishlist')}>
+              <Button variant="outline" size="sm" className="relative border-border text-foreground hover:bg-accent hover:text-accent-foreground">
+                <Heart className="w-4 h-4 mr-2" />
+                Wishlist
+                {wishlistCount > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                    {wishlistCount > 9 ? '9+' : wishlistCount}
+                  </span>
+                )}
               </Button>
             </Link>
           )}

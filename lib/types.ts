@@ -293,6 +293,16 @@ export interface CustomerAddress {
   updatedAt: string
 }
 
+// Customer wishlist item
+export interface CustomerWishlistItem {
+  id: string
+  customerId: string
+  tenantId: string
+  productId: string
+  createdAt: string
+  updatedAt: string
+}
+
 // Product review
 export interface ProductReview {
   id: string

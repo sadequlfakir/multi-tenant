@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { ButtonWithLoader } from '@/components/ui/button-with-loader'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -17,6 +17,8 @@ interface CustomerLoginProps {
 
 export default function CustomerLogin({ tenant }: CustomerLoginProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const returnUrl = searchParams.get('returnUrl') || ''
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -51,7 +53,8 @@ export default function CustomerLogin({ tenant }: CustomerLoginProps) {
       localStorage.setItem('customerToken', data.token)
       localStorage.setItem('customerTenantId', data.customer.tenantId)
 
-      router.push(getTenantLink(tenant, '/customer/dashboard'))
+      const safeReturn = returnUrl && returnUrl.startsWith('/') && !returnUrl.startsWith('//')
+      router.push(safeReturn ? returnUrl : getTenantLink(tenant, '/customer/dashboard'))
     } catch (err: any) {
       setError(err.message || 'Login failed')
     } finally {

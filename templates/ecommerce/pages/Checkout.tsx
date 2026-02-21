@@ -164,7 +164,10 @@ export default function CheckoutPage({ tenant }: CheckoutPageProps) {
 
       if (!response.ok) {
         const error = await response.json()
-        throw new Error(error.error || 'Failed to create order')
+        const errorMessage = error.details && Array.isArray(error.details) 
+          ? `${error.error || 'Failed to create order'}\n\n${error.details.join('\n')}`
+          : error.error || 'Failed to create order'
+        throw new Error(errorMessage)
       }
 
       const order = await response.json()

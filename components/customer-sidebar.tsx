@@ -10,6 +10,7 @@ import {
   LogOut,
   Menu,
   X,
+  Heart,
 } from 'lucide-react'
 import { Button } from './ui/button'
 
@@ -28,6 +29,11 @@ export function CustomerSidebar({ activeSection, onSectionChange, onLogout, cust
       id: 'orders',
       name: 'My Orders',
       icon: Package,
+    },
+    {
+      id: 'wishlist',
+      name: 'Wishlist',
+      icon: Heart,
     },
     {
       id: 'addresses',

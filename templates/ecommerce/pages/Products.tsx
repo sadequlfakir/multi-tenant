@@ -9,8 +9,9 @@ import { Input } from '@/components/ui/input'
 import { Tenant, Product, Category } from '@/lib/types'
 import { getTenantLink } from '@/lib/link-utils'
 import { getProductLink } from '@/lib/product-link-utils'
-import { ShoppingCart, Search, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ShoppingCart, Search, ChevronLeft, ChevronRight, Heart } from 'lucide-react'
 import { useCart } from '@/lib/cart-context'
+import { useWishlist } from '@/lib/wishlist-context'
 import { EcommerceHeader } from '@/components/ecommerce-header'
 import { Skeleton } from '@/components/ui/skeleton'
 
@@ -81,6 +82,7 @@ export default function EcommerceProducts({ tenant }: EcommerceProductsProps) {
   const [error, setError] = useState<string | null>(null)
   const [searchInput, setSearchInput] = useState(() => searchParams.get('q') || searchParams.get('search') || '')
   const { addToCart } = useCart()
+  const { toggleWishlist, isInWishlist, isLoggedIn } = useWishlist()
 
   const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1)
   const limit = Math.max(1, parseInt(searchParams.get('limit') || String(DEFAULT_PAGE_SIZE), 10) || DEFAULT_PAGE_SIZE)
@@ -450,6 +452,24 @@ export default function EcommerceProducts({ tenant }: EcommerceProductsProps) {
                       alt={product.name}
                       className="w-full h-full object-cover"
                     />
+                    <Button
+                      variant="secondary"
+                      size="icon"
+                      className="absolute top-2 right-2 rounded-full bg-background/90 hover:bg-destructive/90 hover:text-destructive-foreground"
+                      onClick={() => {
+                        if (!isLoggedIn) {
+                          const returnUrl = typeof window !== 'undefined' ? encodeURIComponent(window.location.pathname + window.location.search) : ''
+                          router.push(getTenantLink(tenant, `/customer/login${returnUrl ? `?returnUrl=${returnUrl}` : ''}`))
+                          return
+                        }
+                        toggleWishlist(product.id)
+                      }}
+                      aria-label={isInWishlist(product.id) ? 'Remove from wishlist' : 'Add to wishlist'}
+                    >
+                      <Heart
+                        className={`w-4 h-4 ${isInWishlist(product.id) ? 'fill-current' : ''}`}
+                      />
+                    </Button>
                   </div>
                   <CardHeader>
                     <CardTitle>{product.name}</CardTitle>

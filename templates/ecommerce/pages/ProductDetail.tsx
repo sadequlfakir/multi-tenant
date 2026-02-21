@@ -2,12 +2,14 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
+import { useRouter, usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tenant, Product, ProductVariant } from '@/lib/types'
 import { getTenantLink } from '@/lib/link-utils'
-import { ShoppingCart, ArrowLeft } from 'lucide-react'
+import { ShoppingCart, ArrowLeft, Heart } from 'lucide-react'
 import { useCart } from '@/lib/cart-context'
+import { useWishlist } from '@/lib/wishlist-context'
 import { EcommerceHeader } from '@/components/ecommerce-header'
 import { ProductReviews } from '@/components/product-reviews'
 import { ProductComments } from '@/components/product-comments'
@@ -35,7 +37,10 @@ export default function ProductDetail({ tenant, productId }: ProductDetailProps)
   const [error, setError] = useState<string | null>(null)
   /** Selected variant options, e.g. { Color: 'Red', Size: 'S' }. */
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({})
+  const router = useRouter()
+  const pathname = usePathname()
   const { addToCart: addToCartContext } = useCart()
+  const { toggleWishlist, isInWishlist, isLoggedIn } = useWishlist()
 
   const selectedVariant = useMemo(
     () => (product?.variants ? findVariant(product.variants, selectedOptions) : null),
@@ -260,6 +265,25 @@ export default function ProductDetail({ tenant, productId }: ProductDetailProps)
                     : effectiveStock === 0
                       ? 'Out of stock'
                       : 'Add to Cart'}
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full mt-3"
+                  size="lg"
+                  onClick={() => {
+                    if (!isLoggedIn) {
+                      const returnUrl = pathname ? encodeURIComponent(pathname) : ''
+                      router.push(getTenantLink(tenant, `/customer/login${returnUrl ? `?returnUrl=${returnUrl}` : ''}`))
+                      return
+                    }
+                    toggleWishlist(product.id)
+                  }}
+                  aria-label={isInWishlist(product.id) ? 'Remove from wishlist' : 'Add to wishlist'}
+                >
+                  <Heart
+                    className={`w-5 h-5 mr-2 ${isInWishlist(product.id) ? 'fill-current' : ''}`}
+                  />
+                  {isInWishlist(product.id) ? 'Remove from Wishlist' : 'Add to Wishlist'}
                 </Button>
               </CardContent>
             </Card>

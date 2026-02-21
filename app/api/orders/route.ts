@@ -3,6 +3,7 @@ import { getTenantBySubdomain } from '@/lib/tenant-store'
 import { getTenantSubdomainFromRequest } from '@/lib/api-tenant'
 import { readOrders, writeOrders, readCustomers, writeCustomers } from '@/lib/storage'
 import { Order, OrderItem, CustomerInfo, ShippingInfo, PaymentInfo, Customer } from '@/lib/types'
+import { getSupabase } from '@/lib/supabase'
 
 // GET - List all orders for a tenant (tenant from Host or query)
 export async function GET(request: NextRequest) {
@@ -79,6 +80,61 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Tenant not found or not an e-commerce site' },
         { status: 404 }
+      )
+    }
+
+    // Validate product availability before creating order
+    const supabase = getSupabase()
+    if (!supabase) {
+      return NextResponse.json(
+        { error: 'Database not configured' },
+        { status: 500 }
+      )
+    }
+
+    const productIds = items.map((item: OrderItem) => item.productId)
+    const { data: products, error: productsError } = await supabase
+      .from('products')
+      .select('id, name, stock, status')
+      .in('id', productIds)
+      .eq('tenant_id', tenant.id)
+
+    if (productsError) {
+      console.error('Failed to validate products:', productsError)
+      return NextResponse.json(
+        { error: 'Failed to validate products' },
+        { status: 500 }
+      )
+    }
+
+    const productsMap = new Map((products || []).map((p: any) => [p.id, p]))
+    const availabilityErrors: string[] = []
+
+    for (const item of items as OrderItem[]) {
+      const product = productsMap.get(item.productId)
+      if (!product) {
+        availabilityErrors.push(`Product "${item.productName}" not found`)
+        continue
+      }
+      if (product.status !== 'active') {
+        availabilityErrors.push(`Product "${item.productName}" is not available`)
+        continue
+      }
+      if (product.stock != null && product.stock < item.quantity) {
+        availabilityErrors.push(
+          `Product "${item.productName}" only has ${product.stock} in stock, but ${item.quantity} requested`
+        )
+        continue
+      }
+    }
+
+    if (availabilityErrors.length > 0) {
+      return NextResponse.json(
+        { 
+          error: 'Some products are not available',
+          details: availabilityErrors
+        },
+        { status: 400 }
       )
     }
 

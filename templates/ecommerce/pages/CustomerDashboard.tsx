@@ -1,15 +1,18 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Tenant, Order, CustomerAddress } from '@/lib/types'
 import { getTenantLink } from '@/lib/link-utils'
+import { getProductLink } from '@/lib/product-link-utils'
+import { useCart } from '@/lib/cart-context'
+import Link from 'next/link'
 import { EcommerceHeader } from '@/components/ecommerce-header'
 import { CustomerSidebar } from '@/components/customer-sidebar'
-import { Package, MapPin, Plus, Edit, Trash2, Save } from 'lucide-react'
+import { Package, MapPin, Plus, Edit, Trash2, Save, Heart, ShoppingCart, AlertCircle } from 'lucide-react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -20,13 +23,33 @@ interface CustomerDashboardProps {
 }
 
 type OrderStatus = 'all' | 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled'
-type DashboardSection = 'orders' | 'addresses' | 'profile' | 'password'
+type DashboardSection = 'orders' | 'wishlist' | 'addresses' | 'profile' | 'password'
+
+interface WishlistItemWithProduct {
+  id: string
+  productId: string
+  product?: {
+    id: string
+    name: string
+    description: string
+    price: number
+    image: string
+    stock?: number
+    status?: string
+    slug?: string
+    isAvailable: boolean
+  }
+}
 
 export default function CustomerDashboard({ tenant }: CustomerDashboardProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const { addToCart } = useCart()
   const [customer, setCustomer] = useState<any>(null)
   const [orders, setOrders] = useState<Order[]>([])
   const [addresses, setAddresses] = useState<CustomerAddress[]>([])
+  const [wishlistItems, setWishlistItems] = useState<WishlistItemWithProduct[]>([])
+  const [wishlistLoading, setWishlistLoading] = useState(false)
   const [loading, setLoading] = useState(true)
   const [activeSection, setActiveSection] = useState<DashboardSection>('orders')
   const [statusFilter, setStatusFilter] = useState<OrderStatus>('all')
@@ -68,10 +91,19 @@ export default function CustomerDashboard({ tenant }: CustomerDashboardProps) {
     checkAuth()
   }, [])
 
+  const sectionParam = searchParams.get('section')
+  useEffect(() => {
+    if (sectionParam === 'wishlist' && activeSection !== 'wishlist') {
+      setActiveSection('wishlist')
+    }
+  }, [sectionParam])
+
   useEffect(() => {
     if (customer) {
       if (activeSection === 'orders') {
         loadOrders()
+      } else if (activeSection === 'wishlist') {
+        loadWishlist()
       } else if (activeSection === 'addresses') {
         loadAddresses()
       } else if (activeSection === 'profile') {
@@ -131,6 +163,44 @@ export default function CustomerDashboard({ tenant }: CustomerDashboardProps) {
       }
     } catch (error) {
       console.error('Failed to load orders:', error)
+    }
+  }
+
+  const loadWishlist = async () => {
+    const token = localStorage.getItem('customerToken')
+    if (!token) return
+
+    setWishlistLoading(true)
+    try {
+      const response = await fetch('/api/customer/wishlist', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setWishlistItems(Array.isArray(data) ? data : [])
+      }
+    } catch (error) {
+      console.error('Failed to load wishlist:', error)
+    } finally {
+      setWishlistLoading(false)
+    }
+  }
+
+  const removeFromWishlist = async (productId: string) => {
+    const token = localStorage.getItem('customerToken')
+    if (!token) return
+
+    try {
+      const res = await fetch(`/api/customer/wishlist?productId=${encodeURIComponent(productId)}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (res.ok) loadWishlist()
+    } catch (error) {
+      console.error('Failed to remove from wishlist:', error)
     }
   }
 
@@ -446,11 +516,23 @@ export default function CustomerDashboard({ tenant }: CustomerDashboardProps) {
                           
                           <div className="space-y-2 mb-4">
                             {order.items.map((item, idx) => (
-                              <div key={idx} className="flex justify-between text-sm">
-                                <span>
-                                  {item.productName} x {item.quantity}
-                                </span>
-                                <span className="font-medium">${item.subtotal.toFixed(2)}</span>
+                              <div key={idx} className="flex items-center gap-3 py-2 border-b border-border/50 last:border-0">
+                                {item.productImage ? (
+                                  <img
+                                    src={item.productImage}
+                                    alt={item.productName}
+                                    className="w-12 h-12 rounded object-cover shrink-0 border border-border"
+                                  />
+                                ) : (
+                                  <div className="w-12 h-12 rounded bg-muted shrink-0 flex items-center justify-center">
+                                    <Package className="w-5 h-5 text-muted-foreground" />
+                                  </div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <span className="text-sm font-medium">{item.productName}</span>
+                                  <span className="text-sm text-muted-foreground"> × {item.quantity}</span>
+                                </div>
+                                <span className="text-sm font-medium shrink-0">${item.subtotal.toFixed(2)}</span>
                               </div>
                             ))}
                           </div>
@@ -467,6 +549,126 @@ export default function CustomerDashboard({ tenant }: CustomerDashboardProps) {
                         </CardContent>
                       </Card>
                     ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Wishlist Section */}
+          {activeSection === 'wishlist' && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Heart className="w-5 h-5" />
+                  Wishlist
+                </CardTitle>
+                <CardDescription>Your saved products. Login required to add items.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {wishlistLoading ? (
+                  <div className="text-center py-12 text-muted-foreground">Loading wishlist...</div>
+                ) : wishlistItems.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Heart className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p>Your wishlist is empty</p>
+                    <p className="text-sm mt-2">Add products from the store by clicking the heart on product pages.</p>
+                    <Link href={getTenantLink(tenant, '/products')}>
+                      <Button className="mt-4">Browse Products</Button>
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                    {wishlistItems.map((item) => {
+                      const product = item.product
+                      if (!product) return null
+                      const isAvailable = product.isAvailable
+                      const stockStatus =
+                        product.stock != null
+                          ? product.stock === 0
+                            ? 'Out of Stock'
+                            : product.stock < 5
+                              ? `Only ${product.stock} left`
+                              : 'In Stock'
+                          : 'In Stock'
+                      return (
+                        <Card key={item.id} className="overflow-hidden flex flex-col">
+                          <div className="h-36 bg-muted relative shrink-0">
+                            <img
+                              src={product.image}
+                              alt={product.name}
+                              className="w-full h-full object-cover"
+                            />
+                            {!isAvailable && (
+                              <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+                                  <AlertCircle className="w-3 h-3 mr-0.5" />
+                                  Unavailable
+                                </Badge>
+                              </div>
+                            )}
+                            <Button
+                              variant="secondary"
+                              size="icon"
+                              className="absolute top-1 right-1 h-7 w-7 rounded-full bg-background/95 hover:bg-destructive hover:text-destructive-foreground border-0 shadow-sm"
+                              onClick={() => removeFromWishlist(product.id)}
+                              aria-label="Remove from wishlist"
+                            >
+                              <Heart className="w-4 h-4 fill-current" />
+                            </Button>
+                          </div>
+                          <div className="p-2.5 flex flex-col flex-1 min-h-0">
+                            <Link
+                              href={getProductLink(tenant, { id: product.id, slug: product.slug } as any)}
+                              className="text-sm font-medium leading-tight line-clamp-2 hover:underline mb-1"
+                            >
+                              {product.name}
+                            </Link>
+                            <div className="flex items-center justify-between gap-1 flex-wrap mb-2">
+                              <span className="text-sm font-semibold text-foreground">${product.price}</span>
+                              {isAvailable ? (
+                                <span className="text-[10px] text-muted-foreground border border-border rounded px-1.5 py-0.5">
+                                  {stockStatus}
+                                </span>
+                              ) : (
+                                <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+                                  {product.status === 'draft' ? 'Draft' : 'Out'}
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex gap-1.5 mt-auto">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="flex-1 h-7 text-xs px-2 min-w-0"
+                                onClick={() =>
+                                  addToCart(
+                                    {
+                                      id: product.id,
+                                      name: product.name,
+                                      image: product.image,
+                                      price: product.price,
+                                      description: product.description,
+                                      stock: product.stock,
+                                    },
+                                    1
+                                  )
+                                }
+                                disabled={!isAvailable}
+                              >
+                                <ShoppingCart className="w-3 h-3 mr-1 shrink-0" />
+                                <span className="truncate">{isAvailable ? 'Cart' : '—'}</span>
+                              </Button>
+                              <Link href={getProductLink(tenant, { id: product.id, slug: product.slug } as any)} className="shrink-0">
+                                <Button size="sm" variant="secondary" className="h-7 text-xs px-2">
+                                  Details
+                                </Button>
+                              </Link>
+                            </div>
+                          </div>
+                        </Card>
+                      )
+                    })}
                   </div>
                 )}
               </CardContent>

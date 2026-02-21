@@ -1,6 +1,7 @@
 'use client'
 
 import { CartProvider } from '@/lib/cart-context'
+import { WishlistProvider } from '@/lib/wishlist-context'
 import { Tenant } from '@/lib/types'
 
 interface TenantCartProviderProps {
@@ -11,7 +12,9 @@ interface TenantCartProviderProps {
 export function TenantCartProvider({ children, tenant }: TenantCartProviderProps) {
   return (
     <CartProvider tenantId={tenant.id}>
-      {children}
+      <WishlistProvider tenantId={tenant.id}>
+        {children}
+      </WishlistProvider>
     </CartProvider>
   )
 }

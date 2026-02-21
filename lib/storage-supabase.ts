@@ -1,5 +1,5 @@
 import { getSupabase } from './supabase'
-import type { Tenant, Order, Customer, CustomerAccount, CustomerAddress, ProductReview, ProductComment } from './types'
+import type { Tenant, Order, Customer, CustomerAccount, CustomerAddress, CustomerWishlistItem, ProductReview, ProductComment } from './types'
 import type { User, Admin, SessionData } from './types'
 
 const SUPABASE_REQUIRED_MSG =
@@ -557,5 +557,47 @@ export async function writeProductComments(comments: ProductComment[]): Promise<
     updated_at: c.updatedAt,
   }))
   const { error } = await sb.from('product_comments').upsert(rows, { onConflict: 'id' })
+  if (error) throw error
+}
+
+// Customer Wishlist
+function toCustomerWishlistItem(row: Record<string, unknown>): CustomerWishlistItem {
+  return {
+    id: row.id as string,
+    customerId: row.customer_id as string,
+    tenantId: row.tenant_id as string,
+    productId: row.product_id as string,
+    createdAt: (row.created_at as string) ?? new Date().toISOString(),
+    updatedAt: (row.updated_at as string) ?? new Date().toISOString(),
+  }
+}
+
+export async function readCustomerWishlist(): Promise<CustomerWishlistItem[]> {
+  const sb = requireSupabase()
+  const { data, error } = await sb.from('customer_wishlist').select('*').order('created_at', { ascending: false })
+  if (error) {
+    console.error('Supabase readCustomerWishlist:', error)
+    return []
+  }
+  return (data ?? []).map(toCustomerWishlistItem)
+}
+
+export async function writeCustomerWishlist(items: CustomerWishlistItem[]): Promise<void> {
+  const sb = requireSupabase()
+  const rows = items.map((item) => ({
+    id: item.id,
+    customer_id: item.customerId,
+    tenant_id: item.tenantId,
+    product_id: item.productId,
+    created_at: item.createdAt,
+    updated_at: item.updatedAt,
+  }))
+  const { error } = await sb.from('customer_wishlist').upsert(rows, { onConflict: 'id' })
+  if (error) throw error
+}
+
+export async function deleteCustomerWishlistItem(id: string): Promise<void> {
+  const sb = requireSupabase()
+  const { error } = await sb.from('customer_wishlist').delete().eq('id', id)
   if (error) throw error
 }
