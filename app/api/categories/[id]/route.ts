@@ -91,7 +91,9 @@ export async function PUT(
     if (!('role' in user)) {
       const users = await readUsers()
       const userData = users.find(u => u.id === user.id)
-      if (userData?.tenantId !== tenant.id) {
+      const ownsByLegacy = userData?.tenantId === tenant.id
+      const ownsByOwner = (tenant as { ownerUserId?: string }).ownerUserId === user.id
+      if (!ownsByLegacy && !ownsByOwner) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
     }
@@ -200,7 +202,9 @@ export async function DELETE(
     if (!('role' in user)) {
       const users = await readUsers()
       const userData = users.find(u => u.id === user.id)
-      if (userData?.tenantId !== tenant.id) {
+      const ownsByLegacy = userData?.tenantId === tenant.id
+      const ownsByOwner = (tenant as { ownerUserId?: string }).ownerUserId === user.id
+      if (!ownsByLegacy && !ownsByOwner) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
     }

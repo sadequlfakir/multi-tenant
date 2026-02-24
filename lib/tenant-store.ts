@@ -44,7 +44,8 @@ export async function createTenant(
   subdomain: string,
   template: 'ecommerce' | 'portfolio',
   config: Partial<TenantConfig> = {},
-  isTemplate: boolean = false
+  isTemplate: boolean = false,
+  ownerUserId?: string
 ): Promise<Tenant> {
   await initializeDemoTenants()
   const tenants = await readTenants()
@@ -59,6 +60,7 @@ export async function createTenant(
     name,
     subdomain: normalizedSubdomain,
     template,
+    ownerUserId,
     isTemplate,
     config: {
       siteName: config.siteName || name,

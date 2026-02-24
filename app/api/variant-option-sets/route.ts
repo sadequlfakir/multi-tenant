@@ -81,7 +81,9 @@ export async function POST(request: NextRequest) {
     if (!('role' in user)) {
       const users = await readUsers()
       const u = users.find((x) => x.id === user.id)
-      if (u?.tenantId !== tenant.id) {
+      const ownsByLegacy = u?.tenantId === tenant.id
+      const ownsByOwner = tenant.ownerUserId === user.id
+      if (!ownsByLegacy && !ownsByOwner) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
     }

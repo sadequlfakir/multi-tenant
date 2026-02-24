@@ -38,7 +38,9 @@ export async function GET(request: NextRequest) {
     if (!('role' in user)) {
       const users = await readUsers()
       const userData = users.find((u) => u.id === user.id)
-      if (userData?.tenantId !== tenant.id) {
+      const ownsByLegacy = userData?.tenantId === tenant.id
+      const ownsByOwner = tenant.ownerUserId === user.id
+      if (!ownsByLegacy && !ownsByOwner) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
     }
@@ -99,7 +101,9 @@ export async function POST(request: NextRequest) {
     if (!('role' in user)) {
       const users = await readUsers()
       const userData = users.find((u) => u.id === user.id)
-      if (userData?.tenantId !== tenant.id) {
+      const ownsByLegacy = userData?.tenantId === tenant.id
+      const ownsByOwner = tenant.ownerUserId === user.id
+      if (!ownsByLegacy && !ownsByOwner) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
     }

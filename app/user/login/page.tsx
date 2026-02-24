@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { ButtonWithLoader } from '@/components/ui/button-with-loader'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -11,6 +11,8 @@ import Link from 'next/link'
 
 export default function UserLoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const returnUrl = searchParams.get('returnUrl')
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -41,11 +43,16 @@ export default function UserLoginPage() {
         throw new Error(data.error || 'Login failed')
       }
 
-      // Store token
-      localStorage.setItem('userToken', data.token)
+      // Store token (localStorage + cookie for tenant subdomain access)
+      const { setAuthToken } = await import('@/lib/auth-client')
+      setAuthToken(data.token)
       localStorage.setItem('userType', 'user')
 
-      router.push('/user/dashboard')
+      if (returnUrl && returnUrl.startsWith('http')) {
+        window.location.href = returnUrl
+      } else {
+        router.push(returnUrl || '/user/dashboard')
+      }
     } catch (err: any) {
       setError(err.message || 'Login failed')
     } finally {

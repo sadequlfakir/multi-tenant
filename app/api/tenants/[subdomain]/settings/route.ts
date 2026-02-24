@@ -27,11 +27,13 @@ export async function GET(
       return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
     }
 
-    // Check if user owns this tenant
+    // Check if user owns this tenant (dashboard user).
     if (!('role' in user)) {
       const users = await readUsers()
       const userData = users.find(u => u.id === user.id)
-      if (userData?.tenantId !== tenant.id) {
+      const ownsByLegacyTenantId = userData?.tenantId === tenant.id
+      const ownsByOwnerField = (tenant as any).ownerUserId === user.id
+      if (!ownsByLegacyTenantId && !ownsByOwnerField) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
     }
@@ -65,11 +67,13 @@ export async function PATCH(
       return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
     }
 
-    // Check if user owns this tenant
+    // Check if user owns this tenant (dashboard user).
     if (!('role' in user)) {
       const users = await readUsers()
       const userData = users.find(u => u.id === user.id)
-      if (userData?.tenantId !== tenant.id) {
+      const ownsByLegacyTenantId = userData?.tenantId === tenant.id
+      const ownsByOwnerField = (tenant as any).ownerUserId === user.id
+      if (!ownsByLegacyTenantId && !ownsByOwnerField) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
     }

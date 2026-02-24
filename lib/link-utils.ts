@@ -105,3 +105,21 @@ export function getTenantSiteUrl(tenant: Tenant, path: string = ''): string {
 export function useTenantLink(tenant: Tenant) {
   return (path: string = '') => getTenantLink(tenant, path)
 }
+
+/**
+ * When on a tenant subdomain (e.g. myecom.localhost), returns the main app origin
+ * so links to /user/dashboard, /user/products etc. work.
+ */
+export function getMainAppUrl(path: string = ''): string {
+  if (typeof window === 'undefined') {
+    return path ? path : '/'
+  }
+  const hostname = window.location.hostname
+  const port = window.location.port ? `:${window.location.port}` : ''
+  const protocol = window.location.protocol
+  const isSubdomain = hostname !== 'localhost' && hostname.endsWith('.localhost')
+  if (isSubdomain) {
+    return `${protocol}//localhost${port}${path ? path : ''}`
+  }
+  return path || '/'
+}

@@ -69,7 +69,8 @@ export default function UserRegisterPage() {
       }
 
       const loginData = await loginResponse.json()
-      localStorage.setItem('userToken', loginData.token)
+      const { setAuthToken } = await import('@/lib/auth-client')
+      setAuthToken(loginData.token)
       localStorage.setItem('userType', 'user')
 
       router.push('/user/dashboard')

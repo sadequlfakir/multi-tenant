@@ -4,23 +4,23 @@ import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { 
-  LayoutDashboard, 
-  Settings, 
-  Package, 
-  FolderKanban, 
-  LayoutGrid,
-  Globe, 
+import {
+  LayoutDashboard,
+  Settings,
   ExternalLink,
   Menu,
   X,
   LogOut,
-  Image,
-  ShoppingBag,
-  Users,
-  Layers
+  Globe,
+  type LucideIcon,
 } from 'lucide-react'
 import { Button } from './button'
+
+type SidebarNavItem = {
+  name: string
+  href: string
+  icon: LucideIcon
+}
 
 interface SidebarProps {
   tenant?: {
@@ -28,72 +28,32 @@ interface SidebarProps {
     template: 'ecommerce' | 'portfolio'
   } | null
   onLogout?: () => void
+  navigation?: SidebarNavItem[]
 }
 
-export function Sidebar({ tenant, onLogout }: SidebarProps) {
+export function Sidebar({ tenant, onLogout, navigation: navigationProp }: SidebarProps) {
   const pathname = usePathname()
   const [isMobileOpen, setIsMobileOpen] = React.useState(false)
 
-  const navigation = [
-    {
-      name: 'Dashboard',
-      href: '/user/dashboard',
-      icon: LayoutDashboard,
-    },
-    ...(tenant?.template === 'ecommerce'
-      ? [
-          {
-            name: 'Products',
-            href: '/user/products',
-            icon: Package,
-          },
-          {
-            name: 'Categories',
-            href: '/user/categories',
-            icon: FolderKanban,
-          },
-          {
-            name: 'Variants',
-            href: '/user/variants',
-            icon: Layers,
-          },
-          {
-            name: 'Home Collections',
-            href: '/user/collections',
-            icon: LayoutGrid,
-          },
-          {
-            name: 'Banners & Sliders',
-            href: '/user/banners',
-            icon: Image,
-          },
-          {
-            name: 'Orders',
-            href: '/user/orders',
-            icon: ShoppingBag,
-          },
-          {
-            name: 'Customers',
-            href: '/user/customers',
-            icon: Users,
-          },
-        ]
-      : []),
-    ...(tenant?.template === 'portfolio'
-      ? [
-          {
-            name: 'Projects',
-            href: '/user/projects',
-            icon: FolderKanban,
-          },
-        ]
-      : []),
-    {
-      name: 'Settings',
-      href: '/user/settings',
-      icon: Settings,
-    },
-  ]
+  const navigation: SidebarNavItem[] =
+    navigationProp ??
+    [
+      {
+        name: 'Dashboard',
+        href: '/user/dashboard',
+        icon: LayoutDashboard,
+      },
+      {
+        name: 'My sites',
+        href: '/user/sites',
+        icon: Globe,
+      },
+      {
+        name: 'Settings',
+        href: '/user/settings',
+        icon: Settings,
+      },
+    ]
 
   return (
     <>

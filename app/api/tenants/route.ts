@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createTenant, getAllTenants, getTenantBySubdomain } from '@/lib/tenant-store'
-import { getAuthenticatedUser } from '@/lib/auth'
 import { cacheTenant } from '@/lib/tenant-cache'
 import { warmupCache } from '@/lib/cache-warmup'
 
@@ -98,7 +97,9 @@ export async function POST(request: NextRequest) {
       subdomain,
       template,
       config,
-      Boolean(isTemplate)
+      Boolean(isTemplate),
+      // For dashboard-created sites, record the owner user.
+      'role' in user ? undefined : user.id
     )
     // Cache the tenant for middleware
     cacheTenant(subdomain)

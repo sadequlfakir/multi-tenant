@@ -6,6 +6,11 @@ export interface Tenant {
   subdomain: string
   template: TemplateType
   /**
+   * Owner user ID (dashboard user who created this site).
+   * Optional for older data.
+   */
+  ownerUserId?: string
+  /**
    * When true, this tenant acts as a reusable template
    * that can be cloned/used when creating new sites.
    */

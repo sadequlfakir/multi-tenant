@@ -64,8 +64,9 @@ export default function UserLayout({
     }
   }
 
-  const handleLogout = () => {
-    localStorage.removeItem('userToken')
+  const handleLogout = async () => {
+    const { clearAuthToken } = await import('@/lib/auth-client')
+    clearAuthToken()
     localStorage.removeItem('userType')
     router.push('/')
   }
